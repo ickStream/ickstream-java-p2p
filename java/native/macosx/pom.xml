@@ -51,6 +51,7 @@
                         <source>
                             <directory>../src/main/native</directory>
                             <fileNames>
+                                <fileName>ickDiscovery.c</fileName>
                                 <fileName>ickDiscoveryJNI.c</fileName>
                             </fileNames>
                         </source>
