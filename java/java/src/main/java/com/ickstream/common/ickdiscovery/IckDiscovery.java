@@ -19,7 +19,11 @@ public class IckDiscovery
     public native String[] getDeviceList(int types);
     public native int getDeviceType(String deviceId);
     public native void sendMessage(String deviceId, String message);
-    
+
+    public IckDiscovery() {
+        System.loadLibrary("ickDiscoveryJNI");
+    }
+
     private void onMessage(String deviceId, String message) {
         for (MessageListener listener : messageListeners) {
             listener.onMessage(deviceId, message);
@@ -62,7 +66,6 @@ public class IckDiscovery
     }
 
 	public static void main(String[] args) throws InterruptedException {
-        System.loadLibrary("ickDiscoveryJNI");
         final IckDiscovery discovery = new IckDiscovery();
         discovery.addMessageListener(new MessageListener() {
             @Override
