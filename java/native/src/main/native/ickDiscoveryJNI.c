@@ -20,6 +20,7 @@ void onMessage(const char * szDeviceId, const void * message, const size_t messa
     jstring messageJava = (*env)->NewStringUTF(env, message);
     jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
     (*env)->CallVoidMethod(env, gService, onMessageID, deviceJava, messageJava);
+    (*gJavaVM)->DetachCurrentThread(gJavaVM);
 }
 
 void onDevice(const char * szDeviceId, enum ickDiscovery_command change, enum ickDevice_servicetype type)
@@ -34,6 +35,7 @@ void onDevice(const char * szDeviceId, enum ickDiscovery_command change, enum ic
     jmethodID onDeviceID = (*env)->GetMethodID(env, cls, "onDevice", "(Ljava/lang/String;int;int;)V");
     jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
     (*env)->CallVoidMethod(env, gService, onDeviceID, deviceJava, change, type);
+    (*gJavaVM)->DetachCurrentThread(gJavaVM);
 }
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved)
