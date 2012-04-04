@@ -5,9 +5,10 @@
 
 package com.ickstream.common.ickdiscovery;
 
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.*;
 
 public class IckDiscovery
 {
@@ -71,18 +72,62 @@ public class IckDiscovery
             @Override
             public void onMessage(String deviceId, String message) {
                 System.out.println(deviceId+": "+message);
-                try {
-                    Thread.sleep(1000);
-                    discovery.sendMessage(deviceId, "I'm am here");
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                if(!message.startsWith("I am here")) {
+                    try {
+                        Thread.sleep(1000);
+                        discovery.sendMessage(deviceId, "I am here");
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
         String deviceId = UUID.randomUUID().toString();
-        discovery.initDiscovery(deviceId,"127.0.0.1");
+        final Set<String> devices = new HashSet<String>();
+        discovery.addDeviceListener(new DeviceListener() {
+            @Override
+            public void onDeviceAdded(String deviceId, int services) {
+                System.out.println("Got device: "+deviceId);
+                devices.add(deviceId);
+            }
+
+            @Override
+            public void onDeviceUpdated(String deviceId, int services) {
+                System.out.println("Updated device: "+deviceId);
+                devices.add(deviceId);
+            }
+
+            @Override
+            public void onDeviceRemoved(String deviceId) {
+                System.out.println("Removed device: "+deviceId);
+                devices.remove(deviceId);
+            }
+        });
+        discovery.initDiscovery(deviceId, getNetworkAddress());
         discovery.addService(SERVICE_PLAYER);
-        Thread.sleep(10000);
+        for(int i=0;i<10;i++) {
+            Thread.sleep(10000);
+            for (String device : devices) {
+                discovery.sendMessage(device, "Hello "+device+" are you there ?");
+            }
+        }
         discovery.endDiscovery();
 	}
+    private static String getNetworkAddress() {
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements(); ) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements(); ) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        return inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
 }
