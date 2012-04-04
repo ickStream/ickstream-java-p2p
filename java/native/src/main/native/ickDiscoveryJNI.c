@@ -9,33 +9,53 @@ jobject gService = NULL;
 
 void onMessage(const char * szDeviceId, const void * message, const size_t messageLength)
 {
+    int attached = 0;
     JNIEnv *env;
     if ((*gJavaVM)->GetEnv(gJavaVM, (void**) &env, JNI_VERSION_1_4) != JNI_OK) {
         if((*gJavaVM)->AttachCurrentThread(gJavaVM, &env, NULL) < 0) {
             return;
         }
+        attached = 1;
     }
-    jclass cls = (*env)->GetObjectClass(env, gService);
-    jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onMessage", "(Ljava/lang/String;Ljava/lang/String;)V");
-    jstring messageJava = (*env)->NewStringUTF(env, message);
-    jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
-    (*env)->CallVoidMethod(env, gService, onMessageID, deviceJava, messageJava);
-    (*gJavaVM)->DetachCurrentThread(gJavaVM);
+    if(gService != NULL) {
+        jclass cls = (*env)->GetObjectClass(env, gService);
+        jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onMessage", "(Ljava/lang/String;Ljava/lang/String;)V");
+        if(onMessageID != NULL) {
+            jstring messageJava = (*env)->NewStringUTF(env, message);
+            jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
+            (*env)->CallVoidMethod(env, gService, onMessageID, deviceJava, messageJava);
+        }
+    }
+    if(attached) {
+        (*gJavaVM)->DetachCurrentThread(gJavaVM);
+    }
 }
 
 void onDevice(const char * szDeviceId, enum ickDiscovery_command change, enum ickDevice_servicetype type)
 {
     JNIEnv *env;
+    int attached = 0;
     if ((*gJavaVM)->GetEnv(gJavaVM, (void**) &env, JNI_VERSION_1_4) != JNI_OK) {
         if((*gJavaVM)->AttachCurrentThread(gJavaVM, &env, NULL) < 0) {
             return;
         }
+        attached = 1;
     }
-    jclass cls = (*env)->GetObjectClass(env, gService);
-    jmethodID onDeviceID = (*env)->GetMethodID(env, cls, "onDevice", "(Ljava/lang/String;int;int;)V");
-    jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
-    (*env)->CallVoidMethod(env, gService, onDeviceID, deviceJava, change, type);
-    (*gJavaVM)->DetachCurrentThread(gJavaVM);
+    if(gService != NULL) {
+        jclass cls = (*env)->GetObjectClass(env, gService);
+        jmethodID onDeviceID = (*env)->GetMethodID(env, cls, "onDevice", "(Ljava/lang/String;II)V");
+        if(onDeviceID != NULL) {
+            jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
+            jint changeJava = change;
+            jint typeJava = type;
+            (*env)->CallVoidMethod(env, gService, onDeviceID, deviceJava, changeJava, typeJava);
+        }else {
+            puts("GetMethodID failed");
+        }
+    }
+    if(attached) {
+        (*gJavaVM)->DetachCurrentThread(gJavaVM);
+    }
 }
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved)
