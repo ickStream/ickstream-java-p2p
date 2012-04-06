@@ -1,11 +1,21 @@
+//
+//  ickDiscoveryJNI.c
+//  ickStreamP2P Java JNI Wrapper
+//
+// Copyright (C) 2012 Erland Isaksson (erland@isaksson.info)
+// All rights reserved.
+//
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <jni.h>
 #include <ickDiscoveryJNI.h>
 #include "ickDiscovery.h"
+#include "ickMessaging.h"
 
 JavaVM* gJavaVM = NULL;
 jobject gService = NULL;
+char * myDeviceId = NULL;
 
 void onMessage(const char * szDeviceId, const void * message, const size_t messageLength)
 {
@@ -41,6 +51,11 @@ void onDevice(const char * szDeviceId, enum ickDiscovery_command change, enum ic
         }
         attached = 1;
     }
+    //TODO: Remove this, ugly hack when ickDiscovery supports connections
+    if(strcmp(szDeviceId,myDeviceId) != 0 && (change==ICKDISCOVERY_ADD_DEVICE || change == ICKDISCOVERY_UPDATE_DEVICE)) {
+        ickMessagingInitConnection(szDeviceId);
+    }
+
     if(gService != NULL) {
         jclass cls = (*env)->GetObjectClass(env, gService);
         jmethodID onDeviceID = (*env)->GetMethodID(env, cls, "onDevice", "(Ljava/lang/String;II)V");
@@ -78,13 +93,24 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * 
     const char * szInterface = (*env)->GetStringUTFChars(env, interfaceJava, NULL);
     ickDeviceRegisterMessageCallback(&onMessage);
     ickDeviceRegisterDeviceCallback(&onDevice);
-    ickInitDiscovery(szDeviceId, szInterface);
+
+    //TODO: Remove this later, ugly hack until ickDiscovery supports connections
+    ickInitMessaging(szDeviceId, szInterface);
+    if(myDeviceId != NULL) {
+        free(myDeviceId);
+    }
+    myDeviceId = malloc(strlen(szDeviceId)+1);
+    strcpy(myDeviceId,szDeviceId);
+
+    ickInitDiscovery(szDeviceId, szInterface,NULL);
+
     (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
     (*env)->ReleaseStringUTFChars(env, interfaceJava, szInterface);
 }
 
 void Java_com_ickstream_common_ickdiscovery_IckDiscovery_endDiscovery(JNIEnv * env, jobject service)
 {
+    ickEndMessaging(1);
     ickEndDiscovery(1);
     (*env)->DeleteGlobalRef(env, gService);
     gService = NULL;

@@ -43,6 +43,7 @@
                     <!--  trigger javah -->
                     <javahOS>linux</javahOS>
 
+                    <jdkIncludePath>${java.home}/../Headers</jdkIncludePath>
                     <compilerProvider>generic-classic</compilerProvider>
                     <linkerProvider>generic</linkerProvider>
                     <compilerExecutable>gcc</compilerExecutable>
@@ -53,6 +54,10 @@
                             <fileNames>
                                 <fileName>ickDiscovery.c</fileName>
                                 <fileName>ickDiscoveryJNI.c</fileName>
+                                <fileName>ickDiscoveryRegistry.c</fileName>
+                                <fileName>upnputils.c</fileName>
+                                <fileName>openssdpsocket.c</fileName>
+                                <fileName>ickMessaging.c</fileName>
                             </fileNames>
                         </source>
                     </sources>

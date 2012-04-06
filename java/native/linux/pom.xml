@@ -52,6 +52,10 @@
                             <fileNames>
                                 <fileName>ickDiscovery.c</fileName>
                                 <fileName>ickDiscoveryJNI.c</fileName>
+                                <fileName>ickDiscoveryRegistry.c</fileName>
+                                <fileName>upnputils.c</fileName>
+                                <fileName>openssdpsocket.c</fileName>
+                                <fileName>ickMessaging.c</fileName>
                             </fileNames>
                         </source>
                     </sources>

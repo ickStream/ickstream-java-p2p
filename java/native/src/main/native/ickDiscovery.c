@@ -1,295 +1,367 @@
-#include <stdio.h>
-#include <string.h>
-#include <pthread.h>
-#include <arpa/inet.h>
+//
+//  ickDiscovery.c
+//  ickStreamP2P
+//
+//  Created by Jörg Schwieder on 16.01.12.
+//  Copyright (c) 2012 Du!Business GmbH. All rights reserved.
+//
+//  Basic device discovery handling. The code in this file sets up a discovery socket and handles incoming messages. 
+//  The messages are then dispatched to callback functions, currently going into the Registry in ickDiscoveryRegistry
+//  There are also interface functions to send discoevry messages and queries.
+//
+
+#include <sys/utsname.h>
+
 #include "ickDiscovery.h"
-
-// This is just a stupid simulator
-pthread_t gThread;
-pthread_t gBroadcastListenerThread;
-pthread_t gBroadcastPosterThread;
-ickDevice_message_callback_t gCallback = NULL;
-ickDiscovery_device_callback_t gDeviceCallback = NULL;
-int gAborted = 0;
-#define MAX_CLIENTS 100
-const char gDeviceId[MAX_CLIENTS];
-int gClientWriteSockets[MAX_CLIENTS];
-char * gClientWriteIdentities[MAX_CLIENTS];
-int gServerSocket;
-struct sockaddr_in gServerAddr;
-int gBroadcastListenerSocket;
-struct sockaddr_in gBroadcastListenerAddr;
-pthread_t gClientThreads[MAX_CLIENTS];
-int nextClientThreadNo = 0;
-int nextClientNo = 0;
+#include "ickDiscoveryInternal.h"
+#include "openssdpsocket.h"
+#include "upnputils.h"
 
 
-static void* player_thread_main(void *arg)
-{
-    char player[100];
-    sprintf(player,"Player %s",gDeviceId);
-    int i=0;
-    while(!gAborted) {
-        char buffer[100];
-        sprintf(buffer,"Are you there ? (%d)",i);
-        gCallback(player, buffer,strlen(buffer));
-        sleep(1);
-        i++;
+
+static int ickDiscoveryInitService(void);
+
+
+/*enum ickDiscovery_result {
+    ICKDISCOVERY_SUCCESS            = 0,
+    ICKDISCOVERY_RUNNING            = 1,
+    ICKDISCOVERY_SOCKET_ERROR       = 2,
+    ICKDISCOVERY_THREAD_ERROR       = 3
+};*/
+/*enum ICKDISCOVERY_SSDP_TYPES {
+    ICKDISCOVERY_TYPE_NOTIFY,
+    ICKDISCOVERY_TYPE_SEARCH,
+    ICKDISCOVERY_TYPE_RESPONSE,
+ 
+    ICKDISCOVERY_SSDP_TYPES_COUNT
+};*/
+
+
+// Discovery thread setup
+
+
+// the discovery handler is fully configurable but currently only a singleton instance for default discovery handling is being used
+/*struct _ick_discovery_struct {
+    int         lock;
+    pthread_t   thread;
+    int         socket;
+    
+    char *      UUID;
+    
+    receive_callback_t * receive_callbacks;
+};*/
+
+// use simple lock for quitting thread; discovery thread is a singleton right now
+
+// May change lock handling to something more sensible if needed... change here
+static inline void _ick_unlock_discovery(ickDiscovery_t * discovery) {
+    discovery->lock = 0;
+}
+static inline void _ick_lock_discovery(ickDiscovery_t * discovery) {
+    discovery->lock = -1;
+}
+static int _ick_discovery_locked(ickDiscovery_t * discovery) {
+    return discovery->lock;
+}
+
+//
+// Create and open discovery thread.
+// Shall only be called from main thread
+//
+
+void * _ickDiscovery_poll_thread(void * _disc);
+
+static enum ickDiscovery_result _ickInitDiscovery(ickDiscovery_t * discovery) {
+    // discovery already active
+    if (_ick_discovery_locked(discovery))
+        return ICKDISCOVERY_RUNNING;
+    _ick_lock_discovery(discovery);
+    
+    int udpSocket;
+    
+/*    udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (udpSocket == -1) {
+        _ick_unlock_discovery(discovery);
+        return ICKDISCOVERY_SOCKET_ERROR;
     }
-    printf("Exiting discovery thread\n");
+    struct sockaddr_in inaddr;
+    memset((char *) &inaddr, 0, sizeof(inaddr));
+    inaddr.sin_family = AF_INET;
+    inaddr.sin_port = htons(1900);
+    inaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    
+    int yes = 1;
+	int err1 = setsockopt(udpSocket, SOL_SOCKET, SO_BROADCAST, &yes, sizeof(int));
+	setsockopt(udpSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&yes, sizeof(yes));
+	setsockopt(udpSocket, SOL_SOCKET, SO_NOSIGPIPE, (void *)&yes, sizeof(int));
+    
+    if (err1) {
+        debug("ickDiscovery: error setting broadcast sockopt: %d", err1);
+        _ick_unlock_discovery(discovery);
+        return ICKDISCOVERY_SOCKET_ERROR;
+    }
+    
+    struct in_addr mc_if;
+    mc_if.s_addr = htonl(INADDR_ANY);
+    //    inaddr.sin_addr.s_addr = mc_if.s_addr;
+    if(setsockopt(udpSocket, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if, sizeof(mc_if)) < 0)
+    {
+        debug("ickDiscovery: error setting multicast sockopt", err1);
+        _ick_unlock_discovery(discovery);
+        return ICKDISCOVERY_SOCKET_ERROR;
+    }
+
+    if (bind(udpSocket, &inaddr, sizeof(inaddr))) {
+        debug("ickDiscovery: error binding socket");
+        _ick_unlock_discovery(discovery);
+        return ICKDISCOVERY_SOCKET_ERROR;        
+    }*/
+    
+    const char * interfaces[2] = { discovery->interface, LOCALHOST_ADDR };
+    
+    udpSocket = OpenAndConfSSDPReceiveSocket(2, interfaces, 0);
+    if (!udpSocket) {
+        debug("ickDiscovery: error setting broadcast sockopt");
+        _ick_unlock_discovery(discovery);
+        return ICKDISCOVERY_SOCKET_ERROR;        
+    }
+
+    discovery->socket = udpSocket;
+    
+    if (pthread_create(&(discovery->thread), NULL, _ickDiscovery_poll_thread, discovery)) {
+        _ick_unlock_discovery(discovery);
+        return ICKDISCOVERY_THREAD_ERROR;
+    }
+    
+    return ICKDISCOVERY_SUCCESS;
+}
+
+// use singleton
+
+static ickDiscovery_t _ick_discovery = {0, 0, 0, NULL, NULL, ICKDEVICE_GENERIC, 0, 0};
+
+static ickDiscovery_discovery_exit_callback_t _exitCallback = NULL;
+
+enum ickDiscovery_result ickInitDiscovery(const char * UUID, const char * interface, ickDiscovery_discovery_exit_callback_t exitCallback) {
+    _exitCallback = exitCallback;
+    _ick_discovery.UUID = malloc(strlen(UUID) + 1);
+    _ick_discovery.interface = malloc(strlen(interface) + 1);
+    _ick_discovery.receive_callbacks = malloc(sizeof(struct _ick_callback_list));
+    if (!_ick_discovery.interface) {
+        free (_ick_discovery.UUID); _ick_discovery.UUID = NULL;
+        free (_ick_discovery.interface); _ick_discovery.interface = NULL;
+        free (_ick_discovery.receive_callbacks); _ick_discovery.receive_callbacks = NULL;
+        free (_ick_discovery.location); _ick_discovery.location = NULL;
+        free (_ick_discovery.osname); _ick_discovery.osname = NULL;
+        
+        return ICKDISCOVERY_MEMORY_ERROR;
+    }
+    strcpy(_ick_discovery.UUID, UUID);
+    strcpy(_ick_discovery.interface, interface);
+                                      
+    // add default callbacks here...    
+    _ick_discovery.receive_callbacks->callback = _ick_receive_notify;
+    _ick_discovery.receive_callbacks->next = NULL;
+    
+    // This _should_ be called only once...
+    if (ickDiscoveryInitService())
+        return ICKDISCOVERY_MEMORY_ERROR;
+    
+    return _ickInitDiscovery(&_ick_discovery);
+}
+
+
+//
+// shut down discovery
+// if wait is nonzero ickEndDiscovery will block until thread finishes
+// Shall only be called from main thread!
+//
+
+static void _ickEndDiscovery(ickDiscovery_t *discovery, int wait) {
+    if (!discovery)
+        return;
+    if (!_ick_discovery_locked(discovery))
+        return;
+    _ick_unlock_discovery(discovery);
+    
+    // the discovery thread does block on receiving messages from the socket, so we need to close it to make sure the thread ends
+    close(discovery->socket);
+    
+    if (!discovery->thread)
+        return;
+    
+    // wait for discovery thread to end.
+    if (wait)
+        pthread_join(discovery->thread, NULL);
+}
+
+// use singleton
+
+void ickEndDiscovery(int wait) {
+    _ick_close_discovery_registry(wait);
+    
+    _ickEndDiscovery(&_ick_discovery, wait);
+    free(_ick_discovery.UUID);
+    _ick_discovery.UUID = NULL;
+    free(_ick_discovery.interface);
+    _ick_discovery.interface = NULL;
+}
+
+
+//
+// Discovery poll thread
+// Reads incoming information and executes protocol handlers
+//      - answers to device queries
+//      - device announcement messages
+//      - ickStream discovery instance initialization requests
+//      - DLNA server announcements/query responses
+//      - disconnect messages
+//
+
+#define ICKDISCOVERY_HEADER_SIZE_MAX 1536
+
+static char * _ickDiscovery_headlines[ICKDISCOVERY_SSDP_TYPES_COUNT] = {
+    "NOTIFY * HTTP/1.1\r\n",    // ICKDISCOVERY_TYPE_NOTOFY
+    "M-SEARCH * HTTP/1.1\r\n",  // ICKDISCOVERY_TYPE_SEARCH
+    "HTTP/1.1 200 OK\r\n"       // ICKDISCOVERY_TYPE_RESPONSE
+};
+
+#define _DEBUG_STRLEN   20
+
+void * _ickDiscovery_poll_thread (void * _disc) {
+    ickDiscovery_t * discovery = _disc;
+    char *buffer = malloc(ICKDISCOVERY_HEADER_SIZE_MAX);
+    if (!buffer)
+        return NULL;
+    struct sockaddr address;
+    socklen_t addrlen;
+    char addrstr[_DEBUG_STRLEN];
+    memset(addrstr, 0, _DEBUG_STRLEN);
+    ssize_t rcv_size = 0;
+    
+    while (discovery->lock) {
+        addrlen = sizeof(address);
+        //        debug("\nstart receiving Data\n");
+        memset(buffer, 0, ICKDISCOVERY_HEADER_SIZE_MAX);
+        rcv_size = recvfrom(discovery->socket, buffer, ICKDISCOVERY_HEADER_SIZE_MAX, 0, &address, &addrlen);
+        
+        ParseSSDPPacket(discovery, buffer, rcv_size, &address);
+        
+        // receive callbacks might be added dynamically later. So they might initially be NULL, in this case, ignore the message
+/*        if (!discovery->receive_callbacks)
+            continue;
+        
+        sockaddr_to_string(&address, addrstr, _DEBUG_STRLEN);
+        debug("Message:\n%s from \n %s\n", buffer, addrstr);
+
+        for (enum ICKDISCOVERY_SSDP_TYPES e = ICKDISCOVERY_TYPE_NOTIFY; e < ICKDISCOVERY_SSDP_TYPES_COUNT; e++) {
+            if (!strncmp(buffer, _ickDiscovery_headlines[e], strlen(_ickDiscovery_headlines[e]))) {
+                // Do we have a callback for this message (again... dynamically...)
+                if (discovery->receive_callbacks[e])
+                    discovery->receive_callbacks[e](buffer, &address, addrlen);
+                break;
+            }
+        }*/
+    }
+    
+    close(discovery->socket);
+    
+    if (_exitCallback)
+        _exitCallback();
+    
     return NULL;
 }
 
-static void* client_thread(void *arg) {
-    int socket = (int)arg;
 
-    char player[100];
-    if(read(socket, player, 100) > 0) {
-        printf("Connected read channel from %s\n",player);
 
-        char buffer[100000];
-        int nread = 0;
-        puts("Waiting for message data");
-        while( (nread = read(socket, buffer, 100000)) > 0) {
-            buffer[nread] = '\0';
-            gCallback(player, buffer,strlen(buffer));
-        }
-        printf("Lost contact with %s\n",player);
-        int i;
-        for(i=0;i<MAX_CLIENTS;i++) {
-            if(gClientWriteIdentities[i]!=NULL && strcmp(gClientWriteIdentities[i],player) == 0) {
-                char* identity = gClientWriteIdentities[i];
-                gClientWriteIdentities[i] = NULL;
-                close(gClientWriteSockets[i]);
-                gClientWriteSockets[i] = 0;
-                free(identity);
-                break;
-            }
-        }
-        if(gDeviceCallback!=NULL) {
-            gDeviceCallback(player,ICKDISCOVERY_REMOVE_DEVICE,ICKDEVICE_GENERIC);
-        }
+static int ickDiscoveryInitService(void) {
+    if ((_ick_discovery.UUID == NULL) || (_ick_discovery.interface == NULL))
+        return -1;
+    
+    // this is ugly.... get an IP address string from the interface...
+    // OK, let's de-uglyfy it a bit by first checking whether it maybe already _is_ an IP string...
+    char * inaddr_s = NULL;
+    in_addr_t inaddr = inet_addr(_ick_discovery.interface);
+	if(inaddr != INADDR_NONE) {
+		inaddr_s = _ick_discovery.interface;
+	} else {
+        inaddr = GetIfAddrIPv4(_ick_discovery.interface);
+        //        if (inaddr == INADDR_NONE) 
+        //            return -1;
+        struct in_addr s_inaddr;
+        s_inaddr.s_addr = inaddr;
+        inaddr_s = inet_ntoa(s_inaddr);
     }
-    close(socket);
-}
-
-static void* broadcast_thread(void *arg)
-{
-    int sock;
-    if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        puts("Failed to create socket");
-    }
-    struct sockaddr_in broadcastAddr;
-    /* Construct the server sockaddr_in structure */
-    memset(&broadcastAddr, 0, sizeof(broadcastAddr));       /* Clear struct */
-    broadcastAddr.sin_family = AF_INET;                  /* Internet/IP */
-    broadcastAddr.sin_addr.s_addr = inet_addr("172.16.0.255");  /* IP address */
-    broadcastAddr.sin_port = htons(20531);       /* server port */
-    int opt = 1;
-    setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(int));
-
-    while(!gAborted) {
-        puts("Posting broadcast package");
-        char buffer[100];
-        sprintf(buffer,"ickStream:%s",gDeviceId);
-        if (sendto(sock, buffer, strlen(buffer), 0,
-                   (struct sockaddr *) &broadcastAddr,
-                   sizeof(broadcastAddr)) != strlen(buffer)) {
-          puts("Mismatch in number of sent bytes");
-        }
-        sleep(5);
-    }
-    close(sock);
-    puts("Stop broadcasting");
-}
-
-void connectToServer(const char * player, struct sockaddr_in clientAddr) {
-    int found = 0;
-    int i;
-    for(i=0;i<MAX_CLIENTS;i++) {
-        if(gClientWriteIdentities[i]!=NULL && strcmp(gClientWriteIdentities[i],player) == 0) {
-            found = 1;
-            break;
-        }
-    }
-    if(found == 0) {
-        gClientWriteIdentities[nextClientNo] = malloc(strlen(player)+1);
-        strcpy(gClientWriteIdentities[nextClientNo],player);
-        struct sockaddr_in sendAddr;
-        sendAddr.sin_family = AF_INET;
-        sendAddr.sin_addr.s_addr = clientAddr.sin_addr.s_addr;
-        sendAddr.sin_port = htons(20530);
-        gClientWriteSockets[nextClientNo] = socket(AF_INET,SOCK_STREAM,0);
-        int opt = 1;
-        setsockopt(gServerSocket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
-
-        if(connect(gClientWriteSockets[nextClientNo], &sendAddr, sizeof(sendAddr)) == -1) {
-            puts("Error when connecting to server");
-            close(gClientWriteSockets[nextClientNo]);
-        }else {
-            if(send(gClientWriteSockets[nextClientNo], gDeviceId, strlen(gDeviceId)+1,0) != -1) {
-                printf("Connected write channel to %s\n",player);
-                if(gDeviceCallback!=NULL) {
-                    gDeviceCallback(gClientWriteIdentities[nextClientNo],ICKDISCOVERY_ADD_DEVICE,ICKDEVICE_GENERIC);
-                }
-                nextClientNo = nextClientNo + 1;
-                return;
-            }
-            close(gClientWriteSockets[nextClientNo]);
-            free(gClientWriteIdentities[nextClientNo]);
-            gClientWriteIdentities[nextClientNo] = NULL;
-        }
-    }
-}
-
-static void* broadcast_listener_thread(void *arg)
-{
-    struct sockaddr_in clientAddr;
-    socklen_t clientAddrLength = sizeof(clientAddr);
-
-    char buffer[100];
-    int received;
-
-    while ((received = recvfrom(gBroadcastListenerSocket, buffer, 100, 0,
-                                           (struct sockaddr *) &clientAddr,
-                                           &clientAddrLength)) >= 0) {
-
-        if(gAborted) {
-            break;
-        }
-        if(strncmp(buffer,"ickStream:",10) == 0) {
-            char* player = buffer+10;
-            if(strcmp(player,gDeviceId)!=0) {
-                connectToServer(player,clientAddr);
-            }
-        }
-
-    }
-    close(gBroadcastListenerSocket);
-    puts("Stop listening for broadcasting messages");
-}
-
-static void* server_thread(void *arg)
-{
-
-    struct sockaddr_in clientAddr;
-    socklen_t clientAddrLength = sizeof(clientAddr);
-
-    listen(gServerSocket,5);
-    puts("Waiting for incomming connections");
-    int socket;
-    while((socket = accept(gServerSocket,
-                     (struct sockaddr *) &clientAddr,
-                     &clientAddrLength))>=0) {
-        pthread_create(&gClientThreads[nextClientThreadNo], NULL, client_thread, socket);
-        nextClientThreadNo = nextClientThreadNo + 1;
-
-    }
-    close(gServerSocket);
-    puts("Exiting discovery thread");
-
-}
-
-int ickDeviceSendMsg(const char * UUID, const void * message, const size_t message_size)
-{
-    int i;
-    for(i=0;i<MAX_CLIENTS;i++) {
-        if(gClientWriteIdentities[i]!=NULL && strcmp(gClientWriteIdentities[i],UUID)==0) {
-            if(gClientWriteSockets[i] != 0) {
-                if(send(gClientWriteSockets[i],message,message_size,0) == message_size) {
-                    return 1;
-                }
-            }
-        }
-    }
+    if (!inaddr_s)
+        inaddr_s = "0.0.0.0";
+    //        return -1;
+    
+    _ick_discovery.location = malloc(strlen(inaddr_s) + 1);
+    if (!_ick_discovery.location)
+        return -1;
+    strcpy(_ick_discovery.location, inaddr_s);
+    
+    struct utsname name;
+	if(!uname(&name))
+        asprintf(&_ick_discovery.osname, "%s/%s", name.sysname, name.release);
+    if (!_ick_discovery.osname)
+        asprintf(&_ick_discovery.osname, "Generic/1.0");
+    
+    _ick_init_discovery_registry(_ick_discovery.UUID, _ick_discovery.location, _ick_discovery.osname);
     return 0;
 }
 
-int ickDeviceRegisterMessageCallback(ickDevice_message_callback_t callback) {
-    gCallback = callback;
-}
+//
+// Add/remove capabilities
+// Adds embedded devices or services to the current root device
+//
+// TBD: define services, currently only device types for player and controller are defined
 
-int ickDeviceRegisterDeviceCallback(ickDiscovery_device_callback_t callback) {
-    gDeviceCallback = callback;
-}
+int ickDiscoveryAddService(enum ickDevice_servicetype type) {
+    if ((_ick_discovery.UUID == NULL) || (_ick_discovery.interface == NULL) ||
+        (_ick_discovery.location == NULL) || (_ick_discovery.osname == NULL))
+        return -1;
 
-void ickDiscoveryRemoveService(enum ickDevice_servicetype type) {
-}
-
-char ** ickDeviceList(enum ickDevice_servicetype type) {
-    return NULL;
-}
-
-enum ickDevice_servicetype ickDeviceType(const char * UUID) {
-    return ICKDEVICE_GENERIC;
-}
-
-enum ickDiscovery_result ickInitDiscovery(const char * UUID, const char * interface) {
-    gAborted = 0;
-
-    strcpy(gDeviceId,UUID);
-    int i;
-    for(i=0;i<MAX_CLIENTS;i++) {
-        gClientWriteIdentities[i] = NULL;
-        gClientWriteSockets[i] = 0;
+    char * server_name;
+    asprintf(&server_name, ICKDEVICE_TYPESTR_SERVERSTRING, _ick_discovery.osname);
+    
+    char * location;
+    char * usn;
+    
+    // Add player - only if not already present
+    if (!(_ick_discovery.services & ICKDEVICE_PLAYER) && (type & ICKDEVICE_PLAYER)) {
+        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_discovery.location, ICKDEVICE_STRING_PLAYER);
+        asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_discovery.UUID, ICKDEVICE_TYPESTR_PLAYER);
+        _ick_add_service(ICKDEVICE_TYPESTR_PLAYER, usn, server_name, location);
+        free(location);
+        free(usn);
     }
-
-    // Setting up server socket
-    gServerSocket = socket(AF_INET,SOCK_STREAM,0);
-    if (gServerSocket < 0) {
-        puts("Unable to create server socket");
-        return ICKDISCOVERY_SOCKET_ERROR;
-    }
-
-    int opt = 1;
-    setsockopt(gServerSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
-    setsockopt(gServerSocket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
-
-    gServerAddr.sin_family = AF_INET;
-    gServerAddr.sin_addr.s_addr = INADDR_ANY;
-    gServerAddr.sin_port = htons(20530);
-    if (bind(gServerSocket, (struct sockaddr *) &gServerAddr, sizeof(gServerAddr)) < 0) {
-        puts("Unable to bind to server socket");
-        return ICKDISCOVERY_SOCKET_ERROR;
-    }
-
-    // Setting up server listener socket
-    gBroadcastListenerSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (gBroadcastListenerSocket < 0) {
-        puts("Unable to create server socket");
-        return ICKDISCOVERY_SOCKET_ERROR;
-    }
-    gBroadcastListenerAddr.sin_family = AF_INET;
-    gBroadcastListenerAddr.sin_addr.s_addr = INADDR_ANY;
-    gBroadcastListenerAddr.sin_port = htons(20531);
-    if (bind(gBroadcastListenerSocket, (struct sockaddr *) &gBroadcastListenerAddr, sizeof(gBroadcastListenerAddr)) < 0) {
-        puts("Unable to bind to broadcast socket");
-        return ICKDISCOVERY_SOCKET_ERROR;
-    }
-
-    pthread_create(&gThread, NULL, server_thread, NULL);
-    pthread_create(&gBroadcastPosterThread, NULL, broadcast_thread, NULL);
-    pthread_create(&gBroadcastListenerThread, NULL, broadcast_listener_thread, NULL);
+    /*  OK, let's not add controllers - no reason to do so.
+    // Add controller - only if not already present
+    if (!(_ick_discovery.services & ICKDEVICE_CONTROLLER) && (type & ICKDEVICE_CONTROLLER)) {
+        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, inaddr_s, ICKDEVICE_STRING_CONTROLLER);
+        asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_discovery.UUID, ICKDEVICE_TYPESTR_CONTROLLER);
+        _ick_add_service(ICKDEVICE_TYPESTR_CONTROLLER, usn, server_name, location);
+        free(location);
+        free(usn);
+    }*/
+    _ick_discovery.services |= type;
+    
+    free(server_name);
+    
+    return 0;
 }
 
-void ickEndDiscovery(int wait) {
-    gAborted = 1;
-    close(gBroadcastListenerSocket);
-    close(gServerSocket);
-    int i;
-    for(i=0;i<MAX_CLIENTS;i++) {
-        if(gClientWriteIdentities[i]!=NULL) {
-            char* identity = gClientWriteIdentities[i];
-            gClientWriteIdentities[i] = NULL;
-            if(gClientWriteSockets[i]!=0) {
-                close(gClientWriteSockets[i]);
-            }
-            gClientWriteSockets[i] = 0;
-            free(identity);
-        }
-    }
+int ickDiscoveryRemoveService(enum ickDevice_servicetype type) {
+    // Remove player
+    if (type & ICKDEVICE_PLAYER)
+        _ick_remove_service(ICKDEVICE_TYPESTR_PLAYER);
+    // Remove controller
+    if (type & ICKDEVICE_CONTROLLER)
+        _ick_remove_service(ICKDEVICE_TYPESTR_CONTROLLER);
+    _ick_discovery.services &= ~type;
+    
+    return 0;
 }
 
-void ickDiscoveryAddService(enum ickDevice_servicetype type) {
 
-}
