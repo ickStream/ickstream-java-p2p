@@ -5,9 +5,10 @@
 
 package com.ickstream.common.ickdiscovery;
 
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.net.*;
 import java.util.*;
 
 public class IckDiscovery
@@ -22,7 +23,43 @@ public class IckDiscovery
     public native void sendMessage(String deviceId, String message);
 
     public IckDiscovery() {
-        System.loadLibrary("ickDiscoveryJNI");
+        try {
+            System.loadLibrary("ickDiscoveryJNI");
+        }catch(UnsatisfiedLinkError e) {
+            String classPath = System.getProperty("java.class.path", "");
+            List<String> classPathElements = new ArrayList<String>(Arrays.asList(classPath.split(":")));
+            Boolean loaded = false;
+            if(classPath.matches(".*/libickDiscoveryJNI.*")) {
+                for (String classPathElement : classPathElements) {
+                    if(classPathElement.matches(".*/libickDiscoveryJNI.*")) {
+                        System.load(classPathElement);
+                        loaded = true;
+                        break;
+                    }
+                }
+            }else {
+                String path = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
+                if(path != null) {
+                    File files[] = new File(path).getParentFile().listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File file) {
+                            return file.getName().matches("libickDiscoveryJNI.*");
+                        }
+                    });
+                    if(files.length>0) {
+                        try {
+                            System.load(files[0].getCanonicalPath());
+                            loaded = true;
+                        } catch (IOException e1) {
+                            // Just ignore
+                        }
+                    }
+                }
+            }
+            if(!loaded) {
+                throw e;
+            }
+        }
     }
 
     private void onMessage(String deviceId, String message) {
