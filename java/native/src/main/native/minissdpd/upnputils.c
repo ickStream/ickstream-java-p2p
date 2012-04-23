@@ -21,7 +21,6 @@
 int
 sockaddr_to_string(const struct sockaddr * addr, char * str, size_t size)
 {
-	puts("Point 1");
 	char buffer[64];
 	unsigned short port = 0;
 	int n = -1;

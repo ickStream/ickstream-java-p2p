@@ -11,13 +11,12 @@
 #include <jni.h>
 #include <ickDiscoveryJNI.h>
 #include "ickDiscovery.h"
-#include "ickMessaging.h"
 
 JavaVM* gJavaVM = NULL;
 jobject gService = NULL;
 char * myDeviceId = NULL;
 
-void onMessage(const char * szDeviceId, const void * message, const size_t messageLength)
+void onMessage(const char * szDeviceId, const void * message, size_t messageLength, enum ickMessage_communicationstate state)
 {
     int attached = 0;
     JNIEnv *env;
@@ -52,9 +51,9 @@ void onDevice(const char * szDeviceId, enum ickDiscovery_command change, enum ic
         attached = 1;
     }
     //TODO: Remove this, ugly hack when ickDiscovery supports connections
-    if(strcmp(szDeviceId,myDeviceId) != 0 && (change==ICKDISCOVERY_ADD_DEVICE || change == ICKDISCOVERY_UPDATE_DEVICE)) {
-        ickMessagingInitConnection(szDeviceId);
-    }
+    //if(strcmp(szDeviceId,myDeviceId) != 0 && (change==ICKDISCOVERY_ADD_DEVICE || change == ICKDISCOVERY_UPDATE_DEVICE)) {
+    //    ickMessagingInitConnection(szDeviceId);
+    //}
 
     if(gService != NULL) {
         jclass cls = (*env)->GetObjectClass(env, gService);
@@ -95,7 +94,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * 
     ickDeviceRegisterDeviceCallback(&onDevice);
 
     //TODO: Remove this later, ugly hack until ickDiscovery supports connections
-    ickInitMessaging(szDeviceId, szInterface);
+    //ickInitMessaging(szDeviceId, szInterface);
     if(myDeviceId != NULL) {
         free(myDeviceId);
     }
@@ -110,7 +109,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * 
 
 void Java_com_ickstream_common_ickdiscovery_IckDiscovery_endDiscovery(JNIEnv * env, jobject service)
 {
-    ickEndMessaging(1);
+    //ickEndMessaging(1);
     ickEndDiscovery(1);
     (*env)->DeleteGlobalRef(env, gService);
     gService = NULL;
@@ -127,6 +126,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_removeService(JNIEnv * 
     ickDiscoveryRemoveService(type);
 }
 
+/*
 jobjectArray Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceList(JNIEnv * env, jobject this, jint type)
 {
     char** devices = ickDeviceList(type);
@@ -148,6 +148,7 @@ jobjectArray Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceList(J
     }
     return result;
 }
+*/
 
 jint Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceType(JNIEnv * env, jobject this, jstring deviceIdJava)
 {

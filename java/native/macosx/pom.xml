@@ -50,20 +50,43 @@
                     <linkerExecutable>gcc</linkerExecutable>
                     <sources>
                         <source>
+                            <directory>../src/main/native/minissdpd</directory>
+                            <fileNames>
+                                <fileName>upnputils.c</fileName>
+                                <fileName>openssdpsocket.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../src/main/native/libwebsockets/lib</directory>
+                            <fileNames>
+                                <fileName>libwebsockets.c</fileName>
+                                <fileName>sha-1.c</fileName>
+                                <fileName>parsers.c</fileName>
+                                <fileName>md5.c</fileName>
+                                <fileName>handshake.c</fileName>
+                                <fileName>extension.c</fileName>
+                                <fileName>base64-decode.c</fileName>
+                                <fileName>client-handshake.c</fileName>
+                                <fileName>extension-deflate-stream.c</fileName>
+                                <fileName>extension-x-google-mux.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
                             <directory>../src/main/native</directory>
                             <fileNames>
                                 <fileName>ickDiscovery.c</fileName>
                                 <fileName>ickDiscoveryJNI.c</fileName>
                                 <fileName>ickDiscoveryRegistry.c</fileName>
-                                <fileName>upnputils.c</fileName>
-                                <fileName>openssdpsocket.c</fileName>
-                                <fileName>ickMessaging.c</fileName>
+                                <fileName>ickP2PComm.c</fileName>
                             </fileNames>
                         </source>
                     </sources>
 
+					<compilerStartOptions>
+						<compilerStartOption>-DLWS_NO_FORK</compilerStartOption>
+					</compilerStartOptions>
                     <linkerStartOptions>
-                        <linkerStartOption>-dynamiclib</linkerStartOption>
+                        <linkerStartOption>-dynamiclib -lz</linkerStartOption>
                     </linkerStartOptions>
 
                 </configuration>

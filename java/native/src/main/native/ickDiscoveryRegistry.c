@@ -14,10 +14,10 @@
 #include "ickDiscovery.h"
 #include "ickDiscoveryInternal.h"
 
+#include "libwebsockets.h"
 
-
-static struct _reference_list * _ickStreamDevices = NULL;
-
+static struct _ick_device_struct * _ickStreamDevices = NULL;
+static pthread_mutex_t _device_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 // callback registration for registration
@@ -33,8 +33,10 @@ int ickDeviceRegisterDeviceCallback(ickDiscovery_device_callback_t callback) {
     struct _ickDeviceCallbacks * cbTemp = _ick_DeviceCallbacks;
     
     while (cbTemp)
-        if (cbTemp == callback)
+        if (cbTemp->callback == callback)
             return -1;
+        else
+            (cbTemp = cbTemp->next);
     
     cbTemp = malloc(sizeof(struct _ickDeviceCallbacks));
     cbTemp->next = _ick_DeviceCallbacks;
@@ -44,7 +46,7 @@ int ickDeviceRegisterDeviceCallback(ickDiscovery_device_callback_t callback) {
 }
 
 
-static int _ick_execute_DeviceCallback (struct _reference_list * device, enum ickDiscovery_command change) {
+static int _ick_execute_DeviceCallback (struct _ick_device_struct * device, enum ickDiscovery_command change) {
     struct _ickDeviceCallbacks * cbTemp = _ick_DeviceCallbacks;
 
     while (cbTemp) {
@@ -54,33 +56,76 @@ static int _ick_execute_DeviceCallback (struct _reference_list * device, enum ic
     return 0;
 }
 
-enum ickDevice_servicetype ickDeviceType(const char * UUID) {
-    struct _reference_list * iDev = _ickStreamDevices;
+struct _ick_device_struct * _ickDeviceGet(const char * UUID) {
+    if (!UUID)
+        return _ickStreamDevices;
+    struct _ick_device_struct * iDev = _ickStreamDevices;
     
     while (iDev) {
         if (iDev->UUID)
             if (!strcasecmp(UUID, iDev->UUID))
-                return iDev->type;
+                return iDev;
         iDev = iDev->next;
     }
+    return NULL;
+}
+
+struct _ick_device_struct * _ickDevice4wsi(struct libwebsocket * wsi) {
+    if (!wsi)
+        return NULL;
+    struct _ick_device_struct * iDev = _ickStreamDevices;
+    
+    while (iDev) {
+        if (iDev->wsi == wsi)
+            return iDev;
+        iDev = iDev->next;
+    }
+    return NULL;
+}
+
+enum ickDevice_servicetype ickDeviceType(const char * UUID) {
+    struct _ick_device_struct * iDev = _ickDeviceGet(UUID);
+    if (iDev)
+        return iDev->type;
     return 0;
 }
 
 char * ickDeviceURL(const char * UUID) {
-    struct _reference_list * iDev = _ickStreamDevices;
-    
-    while (iDev) {
-        if (iDev->UUID)
-            if (!strcasecmp(UUID, iDev->UUID))
-                return iDev->URL;
-        iDev = iDev->next;
-    }
+    struct _ick_device_struct * iDev = _ickDeviceGet(UUID);
+    if (iDev)
+        return iDev->URL;
     return NULL;
 }
 
 
 
 
+
+struct _ick_device_struct * _ickDeviceCreateNew(char * UUID, char * URL, void * element, enum ickDevice_servicetype type, struct libwebsocket * wsi) {
+    struct _ick_device_struct * device = malloc(sizeof(struct _ick_device_struct));
+    
+    pthread_mutex_lock(&_device_mutex);
+    device->next = _ickStreamDevices;
+    _ickStreamDevices = device;
+    device->UUID = UUID;
+    device->element = element;
+    device->URL = URL;
+    device->wsi = wsi;
+    device->type = type;
+    device->messageOut = NULL;
+    device->messageMutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(device->messageMutex, NULL);
+    
+    pthread_mutex_unlock(&_device_mutex);
+    return device;
+}
+
+#define _ICK_DEVICE_SET_VALUE_LOCKED(device,element,value) do { \
+    pthread_mutex_lock(&_device_mutex); \
+    if (!(device)->element) \
+        (device)->element = (value); \
+    pthread_mutex_unlock(&_device_mutex); \
+} while (0)
 
 // check whether device is an ickStream device
 static enum ickDevice_servicetype _ick_isIckDevice(const struct _upnp_device * device) {
@@ -112,16 +157,45 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
     if (devType == ICKDEVICE_GENERIC)
         return;
         
-    struct _reference_list * iDev = NULL;
-    struct _reference_list * iDevParent = NULL;
+    struct _ick_device_struct * iDev = NULL;
+    struct _ick_device_struct * iDevParent = NULL;
+        
+    // step 1: find UUID (if present; if not, don't add device)
+    char * UUID = NULL;
+    int l = 0;
+    char * p = NULL;
+    char * strtmp = NULL;
     
-    if (cmd != ICKDISCOVERY_ADD_DEVICE) {
-        iDev = _ickStreamDevices;
-        while (iDev && (iDev->element != device)) {
-            iDevParent = iDev;
-            iDev = iDev->next;
-        }
+    do {
+        l = device->headers[1].l;
+        if (l <= 7)
+            break;;
+        strtmp = malloc(l + 1);
+        memcpy(strtmp, device->headers[1].p, l);
+        strtmp[l] = 0;
+        if (strncmp(strtmp, "uuid:", 5))
+            break;
+        p = strstr(strtmp, "::");
+        l = (p) ? (p - strtmp - 5) : (l - 5);
+        UUID = malloc(l + 1);
+        strncpy(UUID, strtmp + 5, l);
+        UUID[l] = 0;
+        free(strtmp);
+    } while (0);
+
+    
+    // We need to ALWAYS look for an existing device. 
+    // It could be we have created one when the websocket connected but the discovery was not yet in. 
+    // In this case let's join the connections, just in case, even though we do already have all necessary connections.
+    // We also need to search for both device and UUID due to this.
+    pthread_mutex_lock(&_device_mutex);
+    iDev = _ickStreamDevices;
+    while (iDev && (iDev->element != device) && 
+           UUID && (strcmp(iDev->UUID, UUID))) {
+        iDevParent = iDev;
+        iDev = iDev->next;
     }
+    pthread_mutex_unlock(&_device_mutex);
     
     if (!iDev) {
         switch (cmd) {
@@ -133,7 +207,7 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
             case ICKDISCOVERY_UPDATE_DEVICE:
                 cmd = ICKDISCOVERY_ADD_DEVICE;
             default:
-                iDev = malloc(sizeof(struct _reference_list));
+                iDev = _ickDeviceCreateNew(UUID, NULL, NULL, 0, NULL);
                 if (!iDev)
                     return;
                 break;
@@ -142,52 +216,55 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
     
     switch (cmd) {
         case ICKDISCOVERY_ADD_DEVICE: {
+            // What do we do if the element does already exist??? For now: overwrite it. It will not be freed but handling it is the responsibility if the upnp layer anyway.
             iDev->element = (void *)device;
-            iDev->next = _ickStreamDevices;
-            _ickStreamDevices = iDev;
-            iDev->type = devType;
-            iDev->UUID = NULL;
-            int l = device->headers[1].l;
-            if (l < 7)
-                return;
-            char * strtmp = malloc(l + 1);
-            memcpy(strtmp, device->headers[1].p, l);
-            strtmp[l] = 0;
-            if (strncmp(strtmp, "uuid:", 5))
-                return;
-            char * p = strstr(strtmp, "::");
-            l = (p) ? (p - strtmp - 5) : (l - 5);
-            iDev->UUID = malloc(l + 1);
-            strncpy(iDev->UUID, strtmp + 5, l);
-            (iDev->UUID)[l] = 0;
-            free(strtmp);
+            iDev->type |= devType;
+            _ICK_DEVICE_SET_VALUE_LOCKED(iDev, UUID, UUID);
             
-            iDev->URL = NULL;
             l = device->headers[2].l;
+            p = (char *)device->headers[2].p;
+            if (l > 7 && !strncasecmp(p, "http://", 7)) {   // skip http://
+                p += 7;
+                l -= 7;
+            }
             strtmp = malloc(l + 1);
-            memcpy(strtmp, device->headers[2].p, l);
+            memcpy(strtmp, p, l);
             strtmp[l] = 0;
-            p = strtmp;
-            if (!strncasecmp(strtmp, "http://", 7))
-                p = strtmp + 7;
-            p = strchr(p, ':');
+            //            p = strtmp;
+            //            if (!strncasecmp(strtmp, "http://", 7))
+            //                p = strtmp + 7;
+            p = strchr(strtmp, ':');
             if (p)
                 *p = 0;
-            iDev->URL = strtmp;
+            _ICK_DEVICE_SET_VALUE_LOCKED(iDev, URL, strtmp);
             
             _ick_execute_DeviceCallback(iDev, ICKDISCOVERY_ADD_DEVICE);
         }
             break;
-        case ICKDISCOVERY_UPDATE_DEVICE: 
+            
+        case ICKDISCOVERY_UPDATE_DEVICE: {
             /* Handle update callback to application here */
             // TODO: get ickStream-Info from Device
+            
+            // Device was "Generic so far"? Then we did not report it, yet.
+            enum ickDiscovery_command cmd = (iDev->type == ICKDEVICE_GENERIC) ? ICKDISCOVERY_ADD_DEVICE : ICKDISCOVERY_UPDATE_DEVICE;
+            debug("ICKDISCOVERY_UPDATE_DEVICE: %s\n", UUID);
+            iDev->element = (void *)device;
+            iDev->type |= devType;
+            // OK, we only ADD capabilities, we never remove them. That's kind of in-line with UPnP which invalidates a whole root device at a time, but do we really waynt it this way for ickStream?
+            _ick_execute_DeviceCallback(iDev, cmd);            
+        }
             break;
         case ICKDISCOVERY_REMOVE_DEVICE:
+            pthread_mutex_lock(&_device_mutex);
             if (iDevParent)
                 iDevParent->next = iDev->next;
             else if (_ickStreamDevices == iDev)
                 _ickStreamDevices = iDev->next;
-            /* Handle update callbakc to application here */
+            pthread_mutex_unlock(&_device_mutex);
+            
+            _ick_execute_DeviceCallback(iDev, ICKDISCOVERY_REMOVE_DEVICE);
+            // This is DANGEROUS.... the connection is still active, should we really remove a device that may even have an open socket????
             free(iDev);
             
             break;
@@ -967,6 +1044,7 @@ static void _ick_notification_send_socket (char * msg) {
         sockname.sin_family = AF_INET;
         sockname.sin_port = htons(UPNP_PORT);
         sockname.sin_addr.s_addr = inet_addr(UPNP_MCAST_ADDR);
+        init = 1;
     }
     
     int l = strlen(msg) + 1;
@@ -1272,6 +1350,7 @@ void _ick_init_discovery_registry (const char * UUID, const char * location, cha
     LIST_INIT(&servicelisthead);
     LIST_INIT(&_ick_send_cmdlisthead);
     pthread_mutex_init(&_ick_sender_mutex, NULL);
+    pthread_mutex_init(&_device_mutex, NULL);
     srandom(time(NULL));
     
     if( (_sendsock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -1308,6 +1387,7 @@ void _ick_close_discovery_registry (int wait) {
         pthread_join(_ick_sender_struct.thread, NULL);
     
     // I'm not sure this is going to work if we don't wait....
+    pthread_mutex_destroy(&_device_mutex);
     pthread_mutex_destroy(&_ick_sender_mutex);
 }
 

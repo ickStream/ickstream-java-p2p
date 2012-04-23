@@ -23,7 +23,7 @@ extern "C" {
     // UPnP's recommended value is 1,800s but that may be too much for moble players that disconnect/reconnect/lose connection easily because it means we'll expect devices to be valid for this time
     // If the device has been active all the time it's also a low-cost reannouncement, the full cycle is a maximum of 14 UDP packets for a controller and player
     //
-#define ICKDISCOVERY_ANNOUNCE_INTERVAL  300
+#define ICKDISCOVERY_ANNOUNCE_INTERVAL  20
         
     // Search interval. The interval between search requests to the whole network.
     // The search interval works in a similar way as the announce interval but potentially causes more traffic since all devices are supposed to answer.
@@ -157,15 +157,34 @@ extern "C" {
     int ickDeviceRegisterDeviceCallback(ickDiscovery_device_callback_t callback);
     
     
+    enum ickMessage_communicationstate {
+        ICKMESSAGE_SUCCESS          = 0,
+        ICKMESSAGE_INCOMING_DATA    = 0x1,
+        ICKMESSAGE_OUTGOING_DATA    = 0x2,
+        
+        ICKMESSAGE_DATA_INCOMPLETE  = 0x100,
+        ICKMESSAGE_COULD_NOT_SEND   = 0x200,
+        ICKMESSAGE_UNKNOWN_TARGET    = 0x400,
+        
+        ICKMESSAGE_CONNECTION_LOST  = 0x20000
+    };
+    
+    //
     // send a message to device UUID
-    int ickDeviceSendMsg(const char * UUID, const void * message, const size_t message_size);
+    // Return value is "ICKMESSAGE_SUCCESS" as long as the target device is known and did not formally disconnect
+    // Actual message sending is asynchronous and buffered, in case of disconnects the messages stay queued unless either a reconnect can be established or the target device is formally de-registered (either through a timeout of the device validity or a disconnect notification).
+    // TBD: Do we need a timeout to determine when we want ickP2P to stop to try sending messages?
+    //
+    enum ickMessage_communicationstate ickDeviceSendMsg(const char * UUID, const void * message, const size_t message_size);
         
     //
     // Callback function type for callback that is being called whenever a message comes in
     // NOTE: since ickStreamP2P currently is completely asynchronous, both notifications and replies are being retrievd through this.
     // TBD: we should define whether we want to separate notifications and replies but this requires P2P to inspect the content
     //
-    typedef void (* ickDevice_message_callback_t)(const char * UUID, const void * message, const size_t message_size);
+    // NOTE: To use the data handed over, you MUST copy it and you MUST NOT free it. More than one callback can be registered and all receive the same data block, after this it's being freed or reused and overwritten with new data.
+    //
+    typedef void (* ickDevice_message_callback_t)(const char * UUID, const void * message, size_t message_size, enum ickMessage_communicationstate state);
     
     //
     // register message callback

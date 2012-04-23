@@ -26,6 +26,7 @@
 #include <sys/queue.h>
 #include <ctype.h>
 
+#include "libwebsockets.h"
 
 #ifdef DEBUG
 static inline
@@ -40,6 +41,16 @@ void debug(const char *format, ...)
 {
 }
 #endif
+
+
+//
+// General utility tristate type...
+//
+typedef enum _ickTristate {
+    ICK_UNKNOWN = -1,
+    ICK_NO = 0,
+    ICK_YES = 1
+} ickTristate;
 
 
 /*
@@ -59,6 +70,7 @@ void debug(const char *format, ...)
 #define UPNP_PORT       1900
 #define UPNP_MCAST_ADDR "239.255.255.250"
 #define LOCALHOST_ADDR  "127.0.0.1"
+#define WEBSOCKET_PORT  8080    // for now. Later: find free one, we can actually use pretty much anything since we can communicate the port during discovery
 
 struct _upnp_device;
 
@@ -71,18 +83,48 @@ struct _ick_callback_list {
     receive_callback_t callback;
 };
 
-struct _reference_list {
-    struct _reference_list * next;
+
+// message lsit struct for websocket communication, from ickP2PComm.c
+
+struct _ick_message_struct;
+
+//
+// Consolidated linked list for ickDevices
+// renamed from _reference_list for consistency
+//
+// no more redundant 3rd list managing the connections
+// Contains necessary data for both client and server side connections since each ickStream device only has a client or server link except for loopback
+// Will continue to work until we use more than one socket per connection, then we probably need an array or something.
+// Loopback is a special case: here only the client side is stored in the reference list, server side goes to _ick_discovery_struct
+//
+
+
+struct _ick_device_struct {
+    struct _ick_device_struct * next;
     
     enum ickDevice_servicetype type;
     char * UUID;
     char * URL;
     
+    struct libwebsocket * wsi;
+    struct _ick_message_struct * messageOut;
+    pthread_mutex_t * messageMutex;
+        
     void *  element;
 };
 
+// get an element
+struct _ick_device_struct * _ickDeviceGet(const char * UUID);
+struct _ick_device_struct * _ickDevice4wsi(struct libwebsocket * wsi);
 
+
+
+//
 // strcut defining the discovery handler.
+// consolidated to contain connection information.
+// holds socket for server side loopback connection
+//
+
 struct _ick_discovery_struct {
     int         lock;
     pthread_t   thread;
@@ -94,8 +136,26 @@ struct _ick_discovery_struct {
     char *      osname;
     enum ickDevice_servicetype services;
     
+    struct libwebsocket * wsi; // server side loopback connection.
+    
     struct _ick_callback_list * receive_callbacks;
+    ickDiscovery_discovery_exit_callback_t exitCallback;
 };
+
+
+// use simple lock for quitting thread; discovery thread is a singleton right now
+
+// May change lock handling to something more sensible if needed... change here
+static inline void _ick_unlock_discovery(ickDiscovery_t * discovery) {
+    discovery->lock = 0;
+}
+static inline void _ick_lock_discovery(ickDiscovery_t * discovery) {
+    discovery->lock = -1;
+}
+static inline int _ick_discovery_locked(ickDiscovery_t * discovery) {
+    return discovery->lock;
+}
+
 
 
 //
@@ -195,6 +255,11 @@ int _ick_add_service (const char * st, const char * usn, const char * server, co
 int _ick_remove_service(const char * st);
 int _ick_notifications_send (enum _ick_send_cmd command, struct _upnp_service * service);
 
+struct _ick_device_struct * _ickDeviceCreateNew(char * UUID, char * URL, void * element, enum ickDevice_servicetype type, struct libwebsocket * wsi);
+
+int _ickInitP2PComm (struct _ick_discovery_struct * disc, int port);
+int _ickCloseP2PComm(int wait);
+void _ickConnectUnconnectedPlayers(void);
 
 
 #endif

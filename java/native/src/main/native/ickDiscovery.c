@@ -51,19 +51,6 @@ static int ickDiscoveryInitService(void);
     receive_callback_t * receive_callbacks;
 };*/
 
-// use simple lock for quitting thread; discovery thread is a singleton right now
-
-// May change lock handling to something more sensible if needed... change here
-static inline void _ick_unlock_discovery(ickDiscovery_t * discovery) {
-    discovery->lock = 0;
-}
-static inline void _ick_lock_discovery(ickDiscovery_t * discovery) {
-    discovery->lock = -1;
-}
-static int _ick_discovery_locked(ickDiscovery_t * discovery) {
-    return discovery->lock;
-}
-
 //
 // Create and open discovery thread.
 // Shall only be called from main thread
@@ -140,10 +127,8 @@ static enum ickDiscovery_result _ickInitDiscovery(ickDiscovery_t * discovery) {
 
 static ickDiscovery_t _ick_discovery = {0, 0, 0, NULL, NULL, ICKDEVICE_GENERIC, 0, 0};
 
-static ickDiscovery_discovery_exit_callback_t _exitCallback = NULL;
-
 enum ickDiscovery_result ickInitDiscovery(const char * UUID, const char * interface, ickDiscovery_discovery_exit_callback_t exitCallback) {
-    _exitCallback = exitCallback;
+    _ick_discovery.exitCallback = exitCallback;
     _ick_discovery.UUID = malloc(strlen(UUID) + 1);
     _ick_discovery.interface = malloc(strlen(interface) + 1);
     _ick_discovery.receive_callbacks = malloc(sizeof(struct _ick_callback_list));
@@ -199,6 +184,7 @@ static void _ickEndDiscovery(ickDiscovery_t *discovery, int wait) {
 
 void ickEndDiscovery(int wait) {
     _ick_close_discovery_registry(wait);
+    _ickCloseP2PComm(wait);
     
     _ickEndDiscovery(&_ick_discovery, wait);
     free(_ick_discovery.UUID);
@@ -220,11 +206,11 @@ void ickEndDiscovery(int wait) {
 
 #define ICKDISCOVERY_HEADER_SIZE_MAX 1536
 
-static char * _ickDiscovery_headlines[ICKDISCOVERY_SSDP_TYPES_COUNT] = {
+/*static char * _ickDiscovery_headlines[ICKDISCOVERY_SSDP_TYPES_COUNT] = {
     "NOTIFY * HTTP/1.1\r\n",    // ICKDISCOVERY_TYPE_NOTOFY
     "M-SEARCH * HTTP/1.1\r\n",  // ICKDISCOVERY_TYPE_SEARCH
     "HTTP/1.1 200 OK\r\n"       // ICKDISCOVERY_TYPE_RESPONSE
-};
+};*/
 
 #define _DEBUG_STRLEN   20
 
@@ -239,7 +225,7 @@ void * _ickDiscovery_poll_thread (void * _disc) {
     memset(addrstr, 0, _DEBUG_STRLEN);
     ssize_t rcv_size = 0;
     
-    while (discovery->lock) {
+    while (_ick_discovery_locked(discovery)) {
         addrlen = sizeof(address);
         //        debug("\nstart receiving Data\n");
         memset(buffer, 0, ICKDISCOVERY_HEADER_SIZE_MAX);
@@ -266,8 +252,8 @@ void * _ickDiscovery_poll_thread (void * _disc) {
     
     close(discovery->socket);
     
-    if (_exitCallback)
-        _exitCallback();
+    if (discovery->exitCallback)
+        discovery->exitCallback();
     
     return NULL;
 }
@@ -307,6 +293,7 @@ static int ickDiscoveryInitService(void) {
     if (!_ick_discovery.osname)
         asprintf(&_ick_discovery.osname, "Generic/1.0");
     
+    _ickInitP2PComm(&_ick_discovery, WEBSOCKET_PORT);
     _ick_init_discovery_registry(_ick_discovery.UUID, _ick_discovery.location, _ick_discovery.osname);
     return 0;
 }
@@ -336,9 +323,10 @@ int ickDiscoveryAddService(enum ickDevice_servicetype type) {
         free(location);
         free(usn);
     }
-    /*  OK, let's not add controllers - no reason to do so.
+    //  OK, let's not add controllers - no reason to do so.
+    // But registering a controller should make us connect to known players...
     // Add controller - only if not already present
-    if (!(_ick_discovery.services & ICKDEVICE_CONTROLLER) && (type & ICKDEVICE_CONTROLLER)) {
+/*    if (!(_ick_discovery.services & ICKDEVICE_CONTROLLER) && (type & ICKDEVICE_CONTROLLER)) {
         asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, inaddr_s, ICKDEVICE_STRING_CONTROLLER);
         asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_discovery.UUID, ICKDEVICE_TYPESTR_CONTROLLER);
         _ick_add_service(ICKDEVICE_TYPESTR_CONTROLLER, usn, server_name, location);
