@@ -81,7 +81,7 @@
                     </sources>
 
 					<compilerStartOptions>
-						<compilerStartOption>-DLWS_NO_FORK</compilerStartOption>
+						<compilerStartOption>-DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
 					</compilerStartOptions>
                     <linkerStartOptions>
                         <linkerStartOption>-shared -lz</linkerStartOption>

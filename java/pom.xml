@@ -7,6 +7,9 @@
     <name>ickDiscovery Java Wrapper - Parent</name>
 
     <packaging>pom</packaging>
+    <properties>
+	<ickstream.compiler.flags/>
+    </properties>
     <modules>
         <module>java</module>
         <module>native</module>
