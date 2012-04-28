@@ -249,7 +249,7 @@ sha1_pad(struct sha1_ctxt *ctxt)
 	bzero(&ctxt->m.b8[padstart], padlen - 8);
 	COUNT += (padlen - 8);
 	COUNT %= 64;
-#if BYTE_ORDER == BIG_ENDIAN
+#if !(BYTE_ORDER == LITTLE_ENDIAN)
 	PUTPAD(ctxt->c.b8[0]); PUTPAD(ctxt->c.b8[1]);
 	PUTPAD(ctxt->c.b8[2]); PUTPAD(ctxt->c.b8[3]);
 	PUTPAD(ctxt->c.b8[4]); PUTPAD(ctxt->c.b8[5]);
@@ -294,7 +294,7 @@ sha1_result(struct sha1_ctxt *ctxt, caddr_t digest0)
 
 	digest = (u_int8_t *)digest0;
 	sha1_pad(ctxt);
-#if BYTE_ORDER == BIG_ENDIAN
+#if !(BYTE_ORDER == LITTLE_ENDIAN)
 	memcpy(digest, &ctxt->h.b8[0], 20);
 #else
 	digest[0] = ctxt->h.b8[3]; digest[1] = ctxt->h.b8[2];
