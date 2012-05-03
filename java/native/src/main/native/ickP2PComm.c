@@ -455,19 +455,26 @@ static void * __ickP2PServiceThread(void * dummy) {
 
 static void __ickOpenWebsocket(struct _ick_device_struct * device) {
     char * URL = NULL;
-    if (strcmp(device->UUID, _ick_p2pDiscovery->UUID))
+    unsigned short port = __port;
+    // loopback?
+    if (strcmp(device->UUID, _ick_p2pDiscovery->UUID)) {
+        // no - use data
         URL = strdup(device->URL);
-    else 
+        port = device->port;
+        if (!port)
+            port = WEBSOCKET_PORT;
+    } else
         URL = strdup("127.0.0.1");
     device->wsi = libwebsocket_client_connect(__context, 
                                               URL,                                                      
-                                              __port,
+                                              port,
                                               0,
                                               "/",
                                               _ick_p2pDiscovery->location,
                                               _ick_p2pDiscovery->UUID,
                                               __protocols[ICK_PROTOCOL_P2PJSON].name,
                                               -1);
+    
     free(URL);    
 }
 
@@ -521,10 +528,37 @@ void _ickConnectUnconnectedPlayers(void) {
     }
 }
 
+static unsigned short __findFreePort(void) {
+    int serverfd;
+    serverfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in channel;
+    memset(&channel, 0, sizeof(channel));
+    channel.sin_family = AF_INET;
+    channel.sin_addr.s_addr = INADDR_ANY;
+    bind(serverfd, (struct sockaddr *) &channel, sizeof(channel));
+    
+    socklen_t channellen;
+    getsockname(serverfd, (struct sockaddr *) &channel, &channellen);
+
+    int yes = 1;
+	setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (void *)&yes, sizeof(yes));
+/*    struct linger linger;
+    linger.l_onoff = 1;
+    linger.l_linger = 5;
+    setsockopt(serverfd, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger));*/
+    
+    shutdown(serverfd, SHUT_RDWR);
+    close(serverfd);
+    return ntohs(channel.sin_port);
+}
+
 int _ickInitP2PComm (struct _ick_discovery_struct * disc, int port) {
     _ick_p2pDiscovery = disc;
-    __port = port;
-    __context = libwebsocket_create_context(port, NULL, __protocols, libwebsocket_internal_extensions, NULL, NULL, -1, -1, 0);
+        
+    __port = (port) ? port: __findFreePort();
+    _ick_p2pDiscovery->websocket_port = __port;
+    __context = libwebsocket_create_context(__port, NULL, __protocols, libwebsocket_internal_extensions, NULL, NULL, -1, -1, 0);
     if (__context == NULL)
         return -1;
     

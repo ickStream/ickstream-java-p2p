@@ -70,7 +70,7 @@ typedef enum _ickTristate {
 #define UPNP_PORT       1900
 #define UPNP_MCAST_ADDR "239.255.255.250"
 #define LOCALHOST_ADDR  "127.0.0.1"
-#define WEBSOCKET_PORT  8080    // for now. Later: find free one, we can actually use pretty much anything since we can communicate the port during discovery
+#define WEBSOCKET_PORT  7861    // fallback. We usually find free one, we can actually use pretty much anything since we can communicate the port during discovery
 
 struct _upnp_device;
 
@@ -105,6 +105,7 @@ struct _ick_device_struct {
     enum ickDevice_servicetype type;
     char * UUID;
     char * URL;
+    unsigned short port;
     
     struct libwebsocket * wsi;
     struct _ick_message_struct * messageOut;
@@ -129,6 +130,7 @@ struct _ick_discovery_struct {
     int         lock;
     pthread_t   thread;
     int         socket;
+    unsigned short         websocket_port;
     
     char *      UUID;
     char *      interface;
@@ -229,7 +231,7 @@ break; \
 #define ICKDEVICE_STRING_ROOT           "Root"
 
 #define ICKDEVICE_TYPESTR_USN           "uuid:%s::%s"       // 1st string: UUID, 2nd string: device URN
-#define ICKDEVICE_TYPESTR_LOCATION      "http://%s:9/%s.xml"       // Port 9 is "discard". We need to replace this with something sensible once we enable description XML downloads
+#define ICKDEVICE_TYPESTR_LOCATION      "http://%s:%d/%s.xml"       // Port 9 is "discard". We need to replace this with something sensible once we enable description XML downloads
 
 #define ICKDEVICE_TYPESTR_SERVERSTRING  "SERVER: %s UPnP/1.1 ickStream/1.0"
 
@@ -248,7 +250,7 @@ enum _ick_send_cmd {
 
 
 
-void _ick_init_discovery_registry (const char * UUID, const char * location, char * osname);
+void _ick_init_discovery_registry(ickDiscovery_t * _ick_discovery);
 void _ick_close_discovery_registry (int wait);
 
 int _ick_add_service (const char * st, const char * usn, const char * server, const char * location);

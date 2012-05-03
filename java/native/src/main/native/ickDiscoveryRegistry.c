@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include <fcntl.h>
 
 #include "ickDiscovery.h"
 #include "ickDiscoveryInternal.h"
@@ -18,7 +19,7 @@
 
 static struct _ick_device_struct * _ickStreamDevices = NULL;
 static pthread_mutex_t _device_mutex = PTHREAD_MUTEX_INITIALIZER;
-
+static ickDiscovery_t * _discovery = NULL;
 
 // callback registration for registration
 
@@ -97,7 +98,12 @@ char * ickDeviceURL(const char * UUID) {
     return NULL;
 }
 
-
+unsigned short ickDevicePort(const char * UUID) {
+    struct _ick_device_struct * iDev = _ickDeviceGet(UUID);
+    if (iDev)
+        return iDev->port;
+    return 0;
+}
 
 
 
@@ -132,8 +138,8 @@ static enum ickDevice_servicetype _ick_isIckDevice(const struct _upnp_device * d
     char strtmp[512];
     char * start;
     
-    strncpy(strtmp, device->headers[1].p, device->headers[1].l);
-    strtmp[device->headers[1].l] = 0;
+    strncpy(strtmp, device->headers[HEADER_USN].p, device->headers[HEADER_USN].l);
+    strtmp[device->headers[HEADER_USN].l] = 0;
     start = strstr(strtmp, ICKDEVICE_TYPESTR_MISC);
     if (!start)
         return ICKDEVICE_GENERIC;
@@ -167,11 +173,11 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
     char * strtmp = NULL;
     
     do {
-        l = device->headers[1].l;
+        l = device->headers[HEADER_USN].l;
         if (l <= 7)
             break;;
         strtmp = malloc(l + 1);
-        memcpy(strtmp, device->headers[1].p, l);
+        memcpy(strtmp, device->headers[HEADER_USN].p, l);
         strtmp[l] = 0;
         if (strncmp(strtmp, "uuid:", 5))
             break;
@@ -221,8 +227,8 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
             iDev->type |= devType;
             _ICK_DEVICE_SET_VALUE_LOCKED(iDev, UUID, UUID);
             
-            l = device->headers[2].l;
-            p = (char *)device->headers[2].p;
+            l = device->headers[HEADER_LOCATION].l;
+            p = (char *)device->headers[HEADER_LOCATION].p;
             if (l > 7 && !strncasecmp(p, "http://", 7)) {   // skip http://
                 p += 7;
                 l -= 7;
@@ -237,6 +243,9 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
             if (p)
                 *p = 0;
             _ICK_DEVICE_SET_VALUE_LOCKED(iDev, URL, strtmp);
+            p++;
+            unsigned short port = atoi(p);
+            iDev->port = port;
             
             _ick_execute_DeviceCallback(iDev, ICKDISCOVERY_ADD_DEVICE);
         }
@@ -399,6 +408,14 @@ removeDevice(const struct _ick_discovery_struct * discovery, const struct _heade
 		{
 			debug("remove device : %.*s\n", headers[HEADER_USN].l, headers[HEADER_USN].p);
 			*pp = p->next;
+            
+            struct _ick_callback_list * cblist;
+            cblist = discovery->receive_callbacks;
+            while (cblist) {
+                cblist->callback(p, ICKDISCOVERY_REMOVE_DEVICE);
+                cblist = cblist->next;
+            }
+            
 			free(p);
 			return -1;
 		}
@@ -538,6 +555,7 @@ containsForbiddenChars(const unsigned char * p, int len)
 
 #define METHOD_MSEARCH 1
 #define METHOD_NOTIFY 2
+#define METHOD_REPLY 3
 
 /* ParseSSDPPacket() :
  * parse a received SSDP Packet and call 
@@ -570,6 +588,12 @@ ParseSSDPPacket(const struct _ick_discovery_struct * discovery, const char * p, 
 		method = METHOD_MSEARCH;
 	else if(methodlen==6 && 0==memcmp(p, "NOTIFY", 6))
 		method = METHOD_NOTIFY;
+    else
+        if(methodlen==5 && 0==memcmp(p, "REPLY * HTTP/1.1 200 OK", 23)) {
+            debug("\nM-SEARCH Reply: '%.*s'",
+                  methodlen, p);
+            method = METHOD_REPLY;    
+        }
 	linestart = p;
 	while(linestart < p + n - 2) {
 		/* start parsing the line : detect line end */
@@ -655,6 +679,9 @@ ParseSSDPPacket(const struct _ick_discovery_struct * discovery, const char * p, 
 				}
 				/*debug("**%.*s**%u", m, valuestart, lifetime);*/
 			} else if(l==2 && 0==strncasecmp(linestart, "st", 2)) {
+                // for search replis, ST takes the place of NT
+                if (method == METHOD_REPLY)
+                    i = HEADER_NT;
 				st = valuestart;
 				st_len = m;
 			}
@@ -682,6 +709,10 @@ ParseSSDPPacket(const struct _ick_discovery_struct * discovery, const char * p, 
           st_len, st);
 
 	switch(method) {
+        case METHOD_REPLY:
+            if(headers[0].p && headers[1].p && headers[2].p)
+                r = updateDevice(discovery, headers, time(NULL) + lifetime);                
+            break;
         case METHOD_NOTIFY:
             // BYEBYE only delivers two lines
             if(headers[0].p && headers[1].p && (headers[2].p || nts==NTS_SSDP_BYEBYE)) {
@@ -790,6 +821,7 @@ static struct {
     const char *      location;
     const char *      osname;
     pthread_t         thread;
+    unsigned short    port;
 } _ick_sender_struct;
 
 static int _sendsock;
@@ -896,7 +928,7 @@ static char * _ick_notification_create (enum _ick_send_cmd cmd, struct _upnp_ser
                     char * server;
                     nt = "upnp:rootdevice";
                     asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_sender_struct.UUID, ICKDEVICE_TYPESTR_ROOT);
-                    asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_sender_struct.location, ICKDEVICE_STRING_ROOT);
+                    asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_sender_struct.location, _ick_sender_struct.port, ICKDEVICE_STRING_ROOT);
                     asprintf(&server, ICKDEVICE_TYPESTR_SERVERSTRING, _ick_sender_struct.osname);
                     asprintf(&result, ICK_NOTIFICATION_STRING, 
                              location, 
@@ -918,7 +950,7 @@ static char * _ick_notification_create (enum _ick_send_cmd cmd, struct _upnp_ser
                         location = device->location;
                         server = device->server;
                     } else {
-                        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_sender_struct.location, ICKDEVICE_STRING_ROOT);
+                        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_sender_struct.location, _ick_sender_struct.port, ICKDEVICE_STRING_ROOT);
                         asprintf(&server, ICKDEVICE_TYPESTR_SERVERSTRING, _ick_sender_struct.osname);
                     }
                     asprintf(&result, ICK_NOTIFICATION_STRING, 
@@ -946,7 +978,7 @@ static char * _ick_notification_create (enum _ick_send_cmd cmd, struct _upnp_ser
                     } else {
                         nt = ICKDEVICE_TYPESTR_ROOT;
                         asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_sender_struct.UUID, ICKDEVICE_TYPESTR_ROOT);
-                        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_sender_struct.location, ICKDEVICE_STRING_ROOT);
+                        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_sender_struct.location, _ick_sender_struct.port, ICKDEVICE_STRING_ROOT);
                         asprintf(&server, ICKDEVICE_TYPESTR_SERVERSTRING, _ick_sender_struct.osname);
                     }
                     asprintf(&result, ICK_NOTIFICATION_STRING, 
@@ -1231,7 +1263,23 @@ static void * _ick_notification_request_thread (void * dummy) {
             cmd = LIST_FIRST(&_ick_send_cmdlisthead);
         }
         pthread_mutex_unlock(&_ick_sender_mutex);
-                
+        
+        // Now lets read what's coming back from M-SEARCH....
+        static char _buffer [520];
+        static char * buffer = NULL;
+        if (!buffer) {
+            memcpy(_buffer, "REPLY * ", 8);
+            buffer = _buffer + 8;
+        }
+        struct sockaddr address;
+        socklen_t addrlen;
+        ssize_t rcv_size = 0;
+
+        rcv_size = recvfrom(_sendsock, buffer, 512, 0, &address, &addrlen);
+        if (rcv_size != -1) {
+            debug("\npacket returned %.*s\n", rcv_size, buffer);
+            ParseSSDPPacket(_discovery, _buffer, rcv_size + 8, &address);
+        }
         duration.tv_nsec = 100000000; // 100ms
         nanosleep(&duration, NULL);
     }
@@ -1343,10 +1391,12 @@ int _ick_notifications_send (enum _ick_send_cmd command, struct _upnp_service * 
 
 
 
-void _ick_init_discovery_registry (const char * UUID, const char * location, char * osname) {
-    _ick_sender_struct.UUID = UUID;
-    _ick_sender_struct.location = location;
-    _ick_sender_struct.osname = osname;
+void _ick_init_discovery_registry (ickDiscovery_t * disc) {
+    _ick_sender_struct.UUID = disc->UUID;
+    _ick_sender_struct.location = disc->location;
+    _ick_sender_struct.osname = disc->osname;
+    _ick_sender_struct.port = disc->websocket_port;
+    _discovery = disc;
     LIST_INIT(&servicelisthead);
     LIST_INIT(&_ick_send_cmdlisthead);
     pthread_mutex_init(&_ick_sender_mutex, NULL);
@@ -1357,10 +1407,15 @@ void _ick_init_discovery_registry (const char * UUID, const char * location, cha
 		debug("error creating sendsocket (udp): %d", _sendsock);
 		return;
 	}
+    
     int yes = 1;
 	/*		int err1 = */setsockopt(_sendsock, SOL_SOCKET, SO_BROADCAST, &yes, sizeof(int));
 	setsockopt(_sendsock, SOL_SOCKET, SO_REUSEADDR, (void *)&yes, sizeof(yes));
     setsockopt(_sendsock, SOL_SOCKET, MSG_NOSIGNAL, (void *)&yes, sizeof(int));	
+    
+    int flags = fcntl(_sendsock, F_GETFL);
+    flags |= O_NONBLOCK;    
+    fcntl(_sendsock, F_SETFL, flags);
 
     if (pthread_create(&(_ick_sender_struct.thread), NULL, _ick_notification_request_thread, NULL)) {
 		debug("error creating sender thread");

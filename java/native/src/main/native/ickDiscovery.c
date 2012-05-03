@@ -221,8 +221,8 @@ void * _ickDiscovery_poll_thread (void * _disc) {
         return NULL;
     struct sockaddr address;
     socklen_t addrlen;
-    char addrstr[_DEBUG_STRLEN];
-    memset(addrstr, 0, _DEBUG_STRLEN);
+    //    char addrstr[_DEBUG_STRLEN];
+    //    memset(addrstr, 0, _DEBUG_STRLEN);
     ssize_t rcv_size = 0;
     
     while (_ick_discovery_locked(discovery)) {
@@ -293,8 +293,8 @@ static int ickDiscoveryInitService(void) {
     if (!_ick_discovery.osname)
         asprintf(&_ick_discovery.osname, "Generic/1.0");
     
-    _ickInitP2PComm(&_ick_discovery, WEBSOCKET_PORT);
-    _ick_init_discovery_registry(_ick_discovery.UUID, _ick_discovery.location, _ick_discovery.osname);
+    _ickInitP2PComm(&_ick_discovery, 0); // WEBSOCKET_PORT
+    _ick_init_discovery_registry(&_ick_discovery);
     return 0;
 }
 
@@ -317,7 +317,7 @@ int ickDiscoveryAddService(enum ickDevice_servicetype type) {
     
     // Add player - only if not already present
     if (!(_ick_discovery.services & ICKDEVICE_PLAYER) && (type & ICKDEVICE_PLAYER)) {
-        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_discovery.location, ICKDEVICE_STRING_PLAYER);
+        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_discovery.location, _ick_discovery.websocket_port, ICKDEVICE_STRING_PLAYER);
         asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_discovery.UUID, ICKDEVICE_TYPESTR_PLAYER);
         _ick_add_service(ICKDEVICE_TYPESTR_PLAYER, usn, server_name, location);
         free(location);

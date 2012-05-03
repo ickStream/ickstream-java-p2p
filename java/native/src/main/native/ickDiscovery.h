@@ -141,9 +141,10 @@ extern "C" {
     enum ickDevice_servicetype ickDeviceType(const char * UUID);
     
     //
-    //  temporary hack: get device URL
+    //  temporary hack: get device URL and port
     //
     char * ickDeviceURL(const char * UUID);
+    unsigned short ickDevicePort(const char * UUID);
     
     //
     // Callback function type for callback that is being called whenever a device gets added or removed
