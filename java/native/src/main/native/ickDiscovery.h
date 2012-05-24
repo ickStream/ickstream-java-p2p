@@ -59,7 +59,9 @@ extern "C" {
         ICKDEVICE_GENERIC           = 0,
         ICKDEVICE_PLAYER            = 0x1,
         ICKDEVICE_CONTROLLER        = 0x2,
-        ICKDEVICE_SERVER_GENERIC    = 0x4
+        ICKDEVICE_SERVER_GENERIC    = 0x4,
+        ICKDEVICE_MAX               = 0x4,
+        ICKDEVICE_ANY               = (ICKDEVICE_MAX * 2) - 1
     };
     
     struct _ick_discovery_struct;
@@ -97,13 +99,47 @@ extern "C" {
     // Since the capabilities are bound to the discovery object, all Services have to be re-added after an ickEndDiscovery. We should consider whether we want an "ickDiscoverySuspend and ickDiscoveryResume to keep the object alive while shutting down the actual operation.
     //
     int ickDiscoveryAddService(enum ickDevice_servicetype type);
-
+        
     //
     // Remove a capability. We probably want to be able to correctly shut down a player.
     // Not needed befor ickEndDiscovery since this will announce the shutdown of the whole device.
     //
     int ickDiscoveryRemoveService(enum ickDevice_servicetype type);
 
+    //
+    // This is another configuration function. 
+    // We probably eventually want to replace all these with a common initializer but since it's currently optional I believe it's OK.
+    // This sets up a prefferred device name (default name) and a folder from which to serve up any kind of information.
+    // ickP2P will serve any content in this folder to any client asking on the right port (to be determined over UPnP Discovery), essentially acting as an http server.
+    // No idea what happens to huge files in here (performance wise) so we'd better not have them.
+    // But we'd have to make sure this is an extra-folder and not the root of a flat folder structure containing program code.
+    //
+    // There are notable exceptions. Files named "Player.xml", "Server.xml" or "Controller.xml" will not be served, at least if player, server and controller type is set for the p2p instance.
+    // The reason is that these file names are being used as palceholders and the XML files defining the player, server or controller characteristics are internally created
+    //
+    // One thing that _is_ expected to be served from here are icons.
+    // icons can be configured by adding an "iconList.xml" file to this folder, and the icons files, too, of course.
+    // iconList.xml specifies the available icon files are expected by UPnP e.g.:
+    // <iconList>
+    //         <icon>
+    //              <mimetype>image/png</mimetype>
+    //              <width>114</width>
+    //              <height>114</height>
+    //              <depth>24</depth>
+    //              <url>/icon114.png</url>
+    //         </icon>
+    // .... more icons ...
+    // </iconList>
+    // ickP2P will read this xml file but not check for the availability of the icon files!
+    //
+    // There might be more info added to this folder in the future
+    //
+    // This function should be called before services are being added or a remote conbtroller might miss the device name
+    // Also, deviceinformation is supposed to be static so changing it after a device has been detected will let the change go unnoticed until the device is completely unregistered.
+    // Names are supposed to be UTF-8 encoded
+    //
+    enum ickDiscovery_result ickDiscoverySetupConfigurationData(const char * defaultDeviceName, const char * dataFolder);
+    
 
     /* These are the main commands to communicate to the P2P Core for player/controller communication.
      Service communication would be somewhat similar but uses different protocols. 
@@ -145,6 +181,10 @@ extern "C" {
     //
     char * ickDeviceURL(const char * UUID);
     unsigned short ickDevicePort(const char * UUID);
+    
+    // get suggested device name
+    //
+    char * ickDeviceName(const char * UUID);
     
     //
     // Callback function type for callback that is being called whenever a device gets added or removed

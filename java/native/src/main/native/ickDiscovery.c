@@ -124,14 +124,56 @@ static enum ickDiscovery_result _ickInitDiscovery(ickDiscovery_t * discovery) {
 }
 
 // use singleton
+/*struct _ick_discovery_struct {
+    int         lock;
+    pthread_t   thread;
+    int         socket;
+    unsigned short         websocket_port;
+    
+    char *      UUID;
+    char *      interface;
+    char *      location;
+    char *      osname;
+    enum ickDevice_servicetype services;
+    
+    char *      friendlyName;
+    char *      serverFolder;
+    
+    struct libwebsocket * wsi; // server side loopback connection.
+    
+    struct _ick_callback_list * receive_callbacks;
+    ickDiscovery_discovery_exit_callback_t exitCallback;
+};*/
 
-static ickDiscovery_t _ick_discovery = {0, 0, 0, NULL, NULL, ICKDEVICE_GENERIC, 0, 0};
+
+static ickDiscovery_t _ick_discovery = {    
+    0,  // lock
+    0,  // thread
+    0,  // socket
+    0,  // websocket_port
+    
+    NULL, // UUID
+    NULL, // interface
+    NULL, // location
+    NULL, // osname
+    ICKDEVICE_GENERIC, // services
+    
+    NULL,   // friendlyName
+    NULL,   // serverFolder
+    
+    NULL,   // wsi
+    
+    NULL,   // receive_callbacks
+    NULL    // exitCallback
+};
 
 enum ickDiscovery_result ickInitDiscovery(const char * UUID, const char * interface, ickDiscovery_discovery_exit_callback_t exitCallback) {
     _ick_discovery.exitCallback = exitCallback;
     _ick_discovery.UUID = malloc(strlen(UUID) + 1);
     _ick_discovery.interface = malloc(strlen(interface) + 1);
     _ick_discovery.receive_callbacks = malloc(sizeof(struct _ick_callback_list));
+    _ick_discovery.friendlyName = strdup("ickStreamDevice");
+    _ick_discovery.serverFolder = NULL;
     if (!_ick_discovery.interface) {
         free (_ick_discovery.UUID); _ick_discovery.UUID = NULL;
         free (_ick_discovery.interface); _ick_discovery.interface = NULL;
@@ -351,5 +393,27 @@ int ickDiscoveryRemoveService(enum ickDevice_servicetype type) {
     
     return 0;
 }
+
+enum ickDiscovery_result ickDiscoverySetupConfigurationData(const char * defaultDeviceName, const char * dataFolder) {
+    if (defaultDeviceName) {
+        if (_ick_discovery.friendlyName)
+            free(_ick_discovery.friendlyName);
+        _ick_discovery.friendlyName = strdup(defaultDeviceName);
+        if (!_ick_discovery.friendlyName)
+            return ICKDISCOVERY_MEMORY_ERROR;
+    }
+    if (dataFolder) {
+        if (_ick_discovery.serverFolder)
+            free(_ick_discovery.serverFolder);
+        _ick_discovery.serverFolder = strdup(dataFolder);
+        if (!_ick_discovery.serverFolder)
+            return ICKDISCOVERY_MEMORY_ERROR;
+    }
+    if (defaultDeviceName || dataFolder)
+        _ick_notifications_send(ICK_SEND_CMD_NOTIFY_ADD, NULL);
+    return ICKDISCOVERY_SUCCESS;
+}
+
+
 
 

@@ -123,6 +123,54 @@ static int _ick_execute_MessageCallback (struct _ick_device_struct * device, voi
 
 #pragma mark - server
 
+static int _ick_serve_xml_file(struct libwebsocket *wsi) {
+	char buf[512];
+	char *p = buf;
+    
+    int l = 0;
+    char * xmlfile = NULL;
+
+    l = asprintf(&xmlfile, 
+                 "<root>\r\n"
+                 " <specVersion>\r\n"
+                 "  <major>1</major>\r\n"
+                 "  <minor>0</minor>\r\n"
+                 " </specVersion>\r\n"
+                 " <device>\r\n"
+                 "  <deviceType>" ICKDEVICE_TYPESTR_ROOT "</deviceType>\r\n"
+                 "  <friendlyName>%s</friendlyName>\r\n"    // name
+                 "  <manufacturer>ickStream</manufacturer>\r\n"
+                 "  <manufacturerURL>http://ickstream.com</manufacturerURL>\r\n"
+                 "  <modelDescription>ickStreamDevice</modelDescription>\r\n"
+                 "  <modelName>ickStreamDevice</modelName>\r\n"
+                 "  <UDN>uuid:%s</UDN>\r\n"                      // uuid
+                 //                 "  <presentationURL>%s</presentationURL>\r\n"  // url
+                 " </device>\r\n"
+                 "</root>",
+                 _ick_p2pDiscovery->friendlyName,
+                 _ick_p2pDiscovery->UUID
+                 //                 _ick_p2pDiscovery->interface
+                 );
+    
+    if (l < 0) {
+        return 1;
+    }
+
+    
+	p += sprintf(p, "HTTP/1.0 200 OK\x0d\x0a"
+                 "Server: libwebsockets\x0d\x0a"
+                 "Content-Type: %s\x0d\x0a"
+                 "Content-Length: %u\x0d\x0a"
+                 "\x0d\x0a", "text/xml", l);
+    
+	libwebsocket_write(wsi, (unsigned char *)buf, p - buf, LWS_WRITE_HTTP);
+    
+    libwebsocket_write(wsi, (unsigned char *)xmlfile, l, LWS_WRITE_HTTP);
+    
+	return 0;
+}
+
+
 enum ick_server_protocols {
 	/* always first */
 	PROTOCOL_HTTP = 0,
@@ -154,8 +202,16 @@ static int callback_http(struct libwebsocket_context * context,
             //
             // We probably want to add stuff like default UPnP icons etc. here
             //
-/*            fprintf(stderr, "serving HTTP URI %s\n", (char *)in);
+            fprintf(stderr, "serving HTTP URI %s\n", (char *)in);
             
+            if (in && ((strcmp(in, "/Root.xml") == 0) ||
+                       (strcmp(in, "/Player.xml") == 0) ||
+                       (strcmp(in, "/Controller.xml") == 0))) {
+                _ick_serve_xml_file(wsi);
+                break;
+            }
+
+            /*            
             if (in && strcmp(in, "/favicon.ico") == 0) {
                 if (libwebsockets_serve_http_file(wsi,
                                                   LOCAL_RESOURCE_PATH"/favicon.ico", "image/x-icon"))
@@ -163,6 +219,7 @@ static int callback_http(struct libwebsocket_context * context,
                 break;
             }
             ....*/
+            
             break;
             
             /*

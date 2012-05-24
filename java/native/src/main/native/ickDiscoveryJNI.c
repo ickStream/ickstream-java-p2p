@@ -84,11 +84,13 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_4;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava)
+void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
 {
     puts("Discovery started");
     gService = (*env)->NewGlobalRef(env, service);
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    const char * szDeviceName = (*env)->GetStringUTFChars(env, deviceNameJava, NULL);
+    //const char * szDataFolder = (*env)->GetStringUTFChars(env, dataFolderJava, NULL);
     const char * szInterface = (*env)->GetStringUTFChars(env, interfaceJava, NULL);
     ickDeviceRegisterMessageCallback(&onMessage);
     ickDeviceRegisterDeviceCallback(&onDevice);
@@ -102,8 +104,14 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * 
     strcpy(myDeviceId,szDeviceId);
 
     ickInitDiscovery(szDeviceId, szInterface,NULL);
-
+    ickDiscoverySetupConfigurationData(szDeviceName, NULL);
     (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    if(szDeviceName != NULL) {
+    	(*env)->ReleaseStringUTFChars(env, deviceNameJava, szDeviceName);
+    }
+    //if(szDataFolder != NULL) {
+    //	(*env)->ReleaseStringUTFChars(env, dataFolderJava, szDataFolder);
+    //}
     (*env)->ReleaseStringUTFChars(env, interfaceJava, szInterface);
 }
 

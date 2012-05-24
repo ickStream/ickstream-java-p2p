@@ -55,6 +55,15 @@
                             </fileNames>
                         </source>
                         <source>
+                            <directory>../src/main/native/miniupnp</directory>
+                            <fileNames>
+                                <fileName>connecthostport.c</fileName>
+                                <fileName>miniwget.c</fileName>
+                                <fileName>minixml.c</fileName>
+                                <fileName>receivedata.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
                             <directory>../src/main/native/libwebsockets/lib</directory>
                             <fileNames>
                                 <fileName>libwebsockets.c</fileName>

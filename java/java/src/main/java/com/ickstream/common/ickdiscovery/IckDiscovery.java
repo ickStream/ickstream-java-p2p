@@ -14,7 +14,7 @@ import java.util.*;
 public class IckDiscovery
 {
 
-	public native void initDiscovery(String deviceId, String networkInterface);
+	public native void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
     public native void endDiscovery();
     public native void addService(int service);
     public native void removeService(int service);
@@ -140,7 +140,7 @@ public class IckDiscovery
                 devices.remove(deviceId);
             }
         });
-        discovery.initDiscovery(deviceId, getNetworkAddress());
+        discovery.initDiscovery(deviceId, getNetworkAddress(),"Dummy Client",null);
         discovery.addService(SERVICE_PLAYER);
         for(int i=0;i<10;i++) {
             Thread.sleep(10000);

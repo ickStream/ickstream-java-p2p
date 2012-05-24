@@ -16,6 +16,8 @@
 #include "ickDiscoveryInternal.h"
 
 #include "libwebsockets.h"
+#include "miniwget.h"
+#include "minixml.h"
 
 static struct _ick_device_struct * _ickStreamDevices = NULL;
 static pthread_mutex_t _device_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -105,6 +107,14 @@ unsigned short ickDevicePort(const char * UUID) {
     return 0;
 }
 
+char * ickDeviceName(const char * UUID) {
+    struct _ick_device_struct * iDev = _ickDeviceGet(UUID);
+    if (iDev)
+        return iDev->name;
+    return NULL;
+}
+
+
 
 
 struct _ick_device_struct * _ickDeviceCreateNew(char * UUID, char * URL, void * element, enum ickDevice_servicetype type, struct libwebsocket * wsi) {
@@ -115,6 +125,8 @@ struct _ick_device_struct * _ickDeviceCreateNew(char * UUID, char * URL, void * 
     _ickStreamDevices = device;
     device->UUID = UUID;
     device->element = element;
+    device->xmlData = NULL;
+    device->name = NULL;
     device->URL = URL;
     device->wsi = wsi;
     device->type = type;
@@ -156,6 +168,109 @@ static enum ickDevice_servicetype _ick_isIckDevice(const struct _upnp_device * d
 
     return 0;
 }
+
+#define XMLMAX  256
+
+struct _ick_xmlparser_s {
+    char * name;
+    int level;
+    char elt[XMLMAX];
+    int writeme;
+};
+
+//
+// load XML Data for device descriptions
+// we only read root device information, so whenever we see we do already have XML Data we are fine and don't read it again.
+// we are always reading root info
+//
+static void _ick_parsexml_startelt(void * data, const char * elt, int l) {
+    struct _ick_xmlparser_s * ps = data;
+    ps->level ++;
+    if (l >= XMLMAX)
+        l = XMLMAX - 2;
+    memcpy(ps->elt, elt, l);
+    ps->elt[l] = 0;
+}
+
+static void _ick_parsexml_endelt(void * data, const char * elt, int l) {
+    struct _ick_xmlparser_s * ps = data;
+    ps->level --;
+}
+
+// We expect "deviceType" always to be the first elelemt!
+// and device descriptions have to precede embedded device descriptions
+static void _ick_parsexml_processelt(void * data, const char * content, int l) {
+    struct _ick_xmlparser_s * ps = data;
+    if ((l > 33) && 
+        ((ps->writeme == 0) || !ps->name) &&
+        !strcmp(ps->elt, "deviceType") &&
+        !memcmp(content, ICKDEVICE_TYPESTR_MISC, 33)) {  // right now we only check whether it's an ickStream device: "urn:schemas-ickstream-com:device:"
+        ps->writeme = ps->level;
+    } else if ((ps->writeme == ps->level) && !ps->name && !strcmp(ps->elt, "friendlyName")) {
+        ps->name = malloc(l + 1);
+        if (ps->name) {
+            memcpy(ps->name, content, l);
+            (ps->name)[l] = 0;
+        }
+    }
+}
+
+static void * _ick_loadxmldata_thread(void * param) {
+    struct _ick_device_struct * iDev = param;
+    
+    char * urlString;
+    int result = asprintf(&urlString, "http://%s:%d/Root.xml", iDev->URL, iDev->port);
+    if (result < 1)
+        return NULL;
+    
+    int size;
+    void * data = miniwget(urlString, &size);
+    
+    if (size < 1)
+        return NULL;
+    
+    struct _ick_xmlparser_s device_parser;
+    device_parser.name = NULL;
+    device_parser.level = 0;
+    device_parser.writeme = 0;
+    
+    struct xmlparser parser;
+	/* xmlparser object */
+	parser.xmlstart = data;
+	parser.xmlsize = size;
+	parser.data = &device_parser;
+	parser.starteltfunc = _ick_parsexml_startelt;
+	parser.endeltfunc = _ick_parsexml_endelt;
+	parser.datafunc = _ick_parsexml_processelt;
+	parser.attfunc = 0;
+	parsexml(&parser);
+    
+    if ((device_parser.writeme && device_parser.name) && (iDev->name == NULL)) {
+        _ICK_DEVICE_SET_VALUE_LOCKED(iDev, name, device_parser.name);
+        _ick_execute_DeviceCallback(iDev, ICKDISCOVERY_ADD_DEVICE);
+        if (_discovery->exitCallback)
+            _discovery->exitCallback();
+    } else {
+        if (device_parser.name)
+            free(device_parser.name);
+    }
+    
+    return NULL;
+}
+
+
+static void _ick_load_xml_data(struct _ick_device_struct * iDev) {
+    if (!iDev || iDev->xmlData || !iDev->URL)
+        return;
+    pthread_t thread;
+    pthread_create(&thread, NULL, _ick_loadxmldata_thread, iDev);
+}
+
+
+
+//
+// notification callback - called whenever a device gets added, changed or removed
+//
 
 void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_command cmd) {
     enum ickDevice_servicetype devType = _ick_isIckDevice(device);
@@ -246,8 +361,11 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
             p++;
             unsigned short port = atoi(p);
             iDev->port = port;
-            
+                        
             _ick_execute_DeviceCallback(iDev, ICKDISCOVERY_ADD_DEVICE);
+            
+            // let's load the name data... This means we're probably going to send an update later...
+            _ick_load_xml_data(iDev);
         }
             break;
             
@@ -262,6 +380,9 @@ void _ick_receive_notify(const struct _upnp_device * device, enum ickDiscovery_c
             iDev->type |= devType;
             // OK, we only ADD capabilities, we never remove them. That's kind of in-line with UPnP which invalidates a whole root device at a time, but do we really waynt it this way for ickStream?
             _ick_execute_DeviceCallback(iDev, cmd);            
+            
+            // let's load the name data... This means we're probably going to send another update later...
+            _ick_load_xml_data(iDev);
         }
             break;
         case ICKDISCOVERY_REMOVE_DEVICE:
@@ -1192,6 +1313,10 @@ static void * _ick_notification_request_thread (void * dummy) {
                     pthread_mutex_unlock(&_ick_sender_mutex);
                     close(_sendsock);
                     _sendsock = 0;
+                    
+                    if (_discovery->exitCallback)
+                        _discovery->exitCallback();
+
                     return NULL;
                 }
                     break;

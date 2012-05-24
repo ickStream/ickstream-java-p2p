@@ -107,11 +107,14 @@ struct _ick_device_struct {
     char * URL;
     unsigned short port;
     
+    char * name;
+    
     struct libwebsocket * wsi;
     struct _ick_message_struct * messageOut;
     pthread_mutex_t * messageMutex;
         
     void *  element;
+    void *  xmlData;
 };
 
 // get an element
@@ -137,6 +140,9 @@ struct _ick_discovery_struct {
     char *      location;
     char *      osname;
     enum ickDevice_servicetype services;
+    
+    char *      friendlyName;
+    char *      serverFolder;
     
     struct libwebsocket * wsi; // server side loopback connection.
     
