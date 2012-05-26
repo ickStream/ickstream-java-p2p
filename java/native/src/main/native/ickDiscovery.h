@@ -32,6 +32,12 @@ extern "C" {
     // Define expected maximum response delay UPnP says this needs to be between 1 and 5, let's chose 2 for now.
 #define ICKDISCOVERY_SEARCH_DELAY       2
     
+    // Default Websocket port
+    // ickStreamP2P will usually try to find a free port to use for it's server functionality but if that doesn't work, it will fall back to a default port.
+    // This default port can be changed at compile time using this define
+    // Can be any port that is usually unused on the target platform, the port number will be communicated through the discovery process
+#define WEBSOCKET_PORT  7862
+    
     
     enum ickDiscovery_result {
         ICKDISCOVERY_SUCCESS            = 0,

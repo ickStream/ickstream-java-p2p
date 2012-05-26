@@ -42,7 +42,7 @@
  * during the connect() call */
 #define MINIUPNPC_IGNORE_EINTR
 #endif /* #else _WIN32 */
-#if defined(__sun) || defined(sun)
+#if defined(__sun) || defined(sun) || defined(ANDROID)
 #define MIN(x,y) (((x)<(y))?(x):(y))
 #endif
 
