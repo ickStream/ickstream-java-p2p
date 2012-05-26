@@ -588,7 +588,6 @@ void _ickConnectUnconnectedPlayers(void) {
 static unsigned short __findFreePort(void) {
     int serverfd;
     serverfd = socket(AF_INET, SOCK_STREAM, 0);
-    unsigned short result = 0;
 
     struct sockaddr_in channel;
     memset(&channel, 0, sizeof(channel));
@@ -598,9 +597,7 @@ static unsigned short __findFreePort(void) {
     
     socklen_t channellen;
     getsockname(serverfd, (struct sockaddr *) &channel, &channellen);
-    result = ntohs(channel.sin_port);
-    if (!result)
-        result = WEBSOCKET_PORT;
+    unsigned short rport = ntohs(channel.sin_port);
 
     int yes = 1;
 	setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (void *)&yes, sizeof(yes));
@@ -611,7 +608,9 @@ static unsigned short __findFreePort(void) {
     
     shutdown(serverfd, SHUT_RDWR);
     close(serverfd);
-    return result;
+    if (!rport)
+        rport = WEBSOCKET_PORT;
+    return rport;
 }
 
 int _ickInitP2PComm (struct _ick_discovery_struct * disc, int port) {
