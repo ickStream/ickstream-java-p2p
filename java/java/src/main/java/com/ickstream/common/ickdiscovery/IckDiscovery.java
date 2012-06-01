@@ -20,6 +20,7 @@ public class IckDiscovery
     public native void removeService(int service);
     public native String[] getDeviceList(int types);
     public native int getDeviceType(String deviceId);
+    public native String getDeviceName(String deviceId);
     public native void sendMessage(String deviceId, String message);
 
     public IckDiscovery() {

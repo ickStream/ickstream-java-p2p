@@ -166,6 +166,15 @@ jint Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceType(JNIEnv * 
     return type;
 }
 
+jstring Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceName(JNIEnv * env, jobject this, jstring deviceIdJava)
+{
+    const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    const char * szName = ickDeviceName(szDeviceId);
+    jstring name = (*env)->NewStringUTF(env, szName);
+    (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    return name;
+}
+
 void Java_com_ickstream_common_ickdiscovery_IckDiscovery_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jstring messageJava)
 {
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
