@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.net.*;
 import java.util.*;
 
-public class IckDiscovery
+public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
 {
 
 	public native void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
