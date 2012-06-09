@@ -222,6 +222,8 @@ extern "C" {
     // Actual message sending is asynchronous and buffered, in case of disconnects the messages stay queued unless either a reconnect can be established or the target device is formally de-registered (either through a timeout of the device validity or a disconnect notification).
     // TBD: Do we need a timeout to determine when we want ickP2P to stop to try sending messages?
     //
+    // Broadcast: cou can send a broadcast message to all known devices using "nil" as a UUID parameter.
+    //
     enum ickMessage_communicationstate ickDeviceSendMsg(const char * UUID, const void * message, const size_t message_size);
         
     //

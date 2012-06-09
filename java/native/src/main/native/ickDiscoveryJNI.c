@@ -177,7 +177,10 @@ jstring Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceName(JNIEnv
 
 void Java_com_ickstream_common_ickdiscovery_IckDiscovery_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jstring messageJava)
 {
-    const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    const char * szDeviceId = NULL;
+    if (deviceIdJava != NULL) {
+        szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    }
     const char * szMessage = (*env)->GetStringUTFChars(env, messageJava, NULL);
 
     size_t messageLength = (*env)->GetStringUTFLength(env, messageJava);
@@ -185,7 +188,9 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_sendMessage(JNIEnv * en
     ickDeviceSendMsg(szDeviceId, szMessage, messageLength);
 
     (*env)->ReleaseStringUTFChars(env, messageJava, szMessage);
-    (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    if (szDeviceId != NULL) {
+        (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    }
 }
 
 

@@ -643,21 +643,29 @@ enum ickMessage_communicationstate ickDeviceSendMsg(const char * UUID, const voi
     struct _ick_device_struct * device = _ickDeviceGet(UUID);
     if (!device)
         return ICKMESSAGE_UNKNOWN_TARGET;
-    struct _ick_message_struct * newMessage = malloc(sizeof(struct _ick_message_struct));
-    if (!newMessage)
-        return ICKMESSAGE_COULD_NOT_SEND;
-    unsigned char * data = malloc(LWS_SEND_BUFFER_PRE_PADDING + message_size + LWS_SEND_BUFFER_POST_PADDING);
-    if (!data) {
-        free(newMessage);
-        return ICKMESSAGE_COULD_NOT_SEND;
+    if (UUID && strcmp(UUID, device->UUID))
+        return ICKMESSAGE_UNKNOWN_TARGET;
+    
+    while (device) {
+        struct _ick_message_struct * newMessage = malloc(sizeof(struct _ick_message_struct));
+        if (!newMessage)
+            return ICKMESSAGE_COULD_NOT_SEND;
+        unsigned char * data = malloc(LWS_SEND_BUFFER_PRE_PADDING + message_size + LWS_SEND_BUFFER_POST_PADDING);
+        if (!data) {
+            free(newMessage);
+            return ICKMESSAGE_COULD_NOT_SEND;
+        }
+        newMessage->paddedData = data;
+        memcpy(newMessage->paddedData + LWS_SEND_BUFFER_PRE_PADDING, message, message_size);
+        newMessage->next = NULL;
+        newMessage->size = message_size;
+        
+        __ickInsertMessage(device, newMessage);
+        
+        if (UUID)
+            return ICKMESSAGE_SUCCESS;
+        device = device->next;
     }
-    newMessage->paddedData = data;
-    memcpy(newMessage->paddedData + LWS_SEND_BUFFER_PRE_PADDING, message, message_size);
-    newMessage->next = NULL;
-    newMessage->size = message_size;
-    
-    __ickInsertMessage(device, newMessage);
-    
     return ICKMESSAGE_SUCCESS;
 }
 
