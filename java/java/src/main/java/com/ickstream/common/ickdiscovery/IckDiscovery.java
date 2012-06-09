@@ -21,6 +21,9 @@ public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
     public native int getDeviceType(String deviceId);
     public native String getDeviceName(String deviceId);
     public native void sendMessage(String deviceId, String message);
+    public void sendMessage(String message) {
+        sendMessage(null, message);
+    }
 
     public IckDiscovery() {
         try {
