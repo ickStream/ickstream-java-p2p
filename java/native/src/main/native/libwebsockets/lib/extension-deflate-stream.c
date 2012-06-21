@@ -60,8 +60,10 @@ int lws_extension_callback_deflate_stream(
 		 * in the case we are flushing with nothing new coming in
 		 */
 
-		conn->zs_in.next_in = (unsigned char *)eff_buf->token;
-		conn->zs_in.avail_in = eff_buf->token_len;
+        if (eff_buf->token_len) {
+            conn->zs_in.next_in = (unsigned char *)eff_buf->token;
+            conn->zs_in.avail_in = eff_buf->token_len;
+        }
 
 		conn->zs_in.next_out = conn->buf;
 		conn->zs_in.avail_out = sizeof(conn->buf);
