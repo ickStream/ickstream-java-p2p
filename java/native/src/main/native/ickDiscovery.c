@@ -60,7 +60,7 @@ void * _ickDiscovery_poll_thread(void * _disc);
 
 static enum ickDiscovery_result _ickInitDiscovery(ickDiscovery_t * discovery) {
     // discovery already active
-    if (_ick_discovery_locked(discovery))
+    if (_ick_discovery_locked(discovery) == ICK_DISCOVERY_LOCKED)
         return ICKDISCOVERY_RUNNING;
     _ick_lock_discovery(discovery);
     
@@ -107,7 +107,7 @@ static enum ickDiscovery_result _ickInitDiscovery(ickDiscovery_t * discovery) {
     const char * interfaces[2] = { discovery->interface, LOCALHOST_ADDR };
     
     udpSocket = OpenAndConfSSDPReceiveSocket(2, interfaces, 0);
-    if (!udpSocket) {
+    if (udpSocket <= 0) {
         debug("ickDiscovery: error setting broadcast sockopt");
         _ick_unlock_discovery(discovery);
         return ICKDISCOVERY_SOCKET_ERROR;        
@@ -207,9 +207,9 @@ enum ickDiscovery_result ickInitDiscovery(const char * UUID, const char * interf
 static void _ickEndDiscovery(ickDiscovery_t *discovery, int wait) {
     if (!discovery)
         return;
-    if (!_ick_discovery_locked(discovery))
-        return;
-    _ick_unlock_discovery(discovery);
+    //    if (!_ick_discovery_locked(discovery))
+    //        return;
+    _ick_quit_discovery(discovery);
     
     // the discovery thread does block on receiving messages from the socket, so we need to close it to make sure the thread ends
     close(discovery->socket);
@@ -267,13 +267,14 @@ void * _ickDiscovery_poll_thread (void * _disc) {
     //    memset(addrstr, 0, _DEBUG_STRLEN);
     ssize_t rcv_size = 0;
     
-    while (_ick_discovery_locked(discovery)) {
+    while (_ick_discovery_locked(discovery) != ICK_DISCOVERY_QUIT) {
         addrlen = sizeof(address);
         //        debug("\nstart receiving Data\n");
         memset(buffer, 0, ICKDISCOVERY_HEADER_SIZE_MAX);
         rcv_size = recvfrom(discovery->socket, buffer, ICKDISCOVERY_HEADER_SIZE_MAX, 0, &address, &addrlen);
         
         ParseSSDPPacket(discovery, buffer, rcv_size, &address);
+        usleep(200);
         
         // receive callbacks might be added dynamically later. So they might initially be NULL, in this case, ignore the message
 /*        if (!discovery->receive_callbacks)
@@ -365,6 +366,14 @@ int ickDiscoveryAddService(enum ickDevice_servicetype type) {
         free(location);
         free(usn);
     }
+    if (!(_ick_discovery.services & ICKDEVICE_PLAYER) && (type & ICKDEVICE_SERVER_GENERIC)) {
+        asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_discovery.location, _ick_discovery.websocket_port, ICKDEVICE_STRING_SERVER);
+        asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_discovery.UUID, ICKDEVICE_TYPESTR_SERVER);
+        _ick_add_service(ICKDEVICE_TYPESTR_SERVER, usn, server_name, location);
+        free(location);
+        free(usn);
+    }    
+    
     //  OK, let's not add controllers - no reason to do so.
     // But registering a controller should make us connect to known players...
     // Add controller - only if not already present
@@ -386,6 +395,11 @@ int ickDiscoveryRemoveService(enum ickDevice_servicetype type) {
     // Remove player
     if (type & ICKDEVICE_PLAYER)
         _ick_remove_service(ICKDEVICE_TYPESTR_PLAYER);
+#ifdef SUPPORT_ICK_SERVERS
+    // Remove server
+    if (type & ICKDEVICE_SERVER_GENERIC)
+        _ick_remove_service(ICKDEVICE_TYPESTR_SERVER);
+#endif
     // Remove controller
     if (type & ICKDEVICE_CONTROLLER)
         _ick_remove_service(ICKDEVICE_TYPESTR_CONTROLLER);

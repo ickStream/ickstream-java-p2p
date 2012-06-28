@@ -159,6 +159,11 @@ static enum ickDevice_servicetype _ick_isIckDevice(const struct _upnp_device * d
     if (strstr(start, ICKDEVICE_TYPESTR_PLAYER))
         return ICKDEVICE_PLAYER;
     
+#ifdef SUPPORT_ICK_SERVERS
+    if (strstr(start, ICKDEVICE_TYPESTR_SERVER))
+        return ICKDEVICE_SERVER_GENERIC;    
+#endif
+    
     if (strstr(start, ICKDEVICE_TYPESTR_CONTROLLER))
         return ICKDEVICE_CONTROLLER;
     
@@ -1175,7 +1180,14 @@ static char * _ick_notification_create (enum _ick_send_cmd cmd, struct _upnp_ser
             
             // This needs to be changed once we want to search for more than just players
         case ICK_SEND_CMD_SEARCH: {
-            asprintf(&result, ICK_SEARCH_STRING, ICKDEVICE_TYPESTR_PLAYER);
+            switch(num) {
+                case 0:
+                    asprintf(&result, ICK_SEARCH_STRING, ICKDEVICE_TYPESTR_PLAYER);
+                    break;
+                case 1:
+                    asprintf(&result, ICK_SEARCH_STRING, ICKDEVICE_TYPESTR_SERVER);
+                    break;
+            }
             return result;
         }
             break;
@@ -1355,8 +1367,15 @@ static void * _ick_notification_request_thread (void * dummy) {
                     pthread_mutex_unlock(&_ick_sender_mutex); // unlock thread while sending, we have our data
                     msg[0] = _ick_notification_create(cmd->command, NULL, 0);
                     _ick_notification_send_socket(msg[0]);
+#ifdef SUPPORT_ICK_SERVERS
+                    msg[1] = _ick_notification_create(cmd->command, NULL, 1);
+                    _ick_notification_send_socket(msg[1]);
+#endif
                     pthread_mutex_lock(&_ick_sender_mutex); // and lock again, we need the command list again
                     free(msg[0]); msg[0] = NULL;
+#ifdef SUPPORT_ICK_SERVERS
+                    free(msg[1]); msg[1] = NULL;
+#endif
                     break;
                     
                 case ICK_SEND_CMD_NOTIFY_PERIODICADD:

@@ -295,7 +295,7 @@ _ick_callback_p2p_server(struct libwebsocket_context * context,
             break;
             
         case LWS_CALLBACK_CLIENT_WRITEABLE: {
-            if (!_ick_discovery_locked(_ick_p2pDiscovery))
+            if (_ick_discovery_locked(_ick_p2pDiscovery) == ICK_DISCOVERY_QUIT)
                 break;
             
             //            device = __ickGetDevice4socket(wsi);
@@ -317,7 +317,7 @@ _ick_callback_p2p_server(struct libwebsocket_context * context,
             break;
             
         case LWS_CALLBACK_SERVER_WRITEABLE: {
-            if (!_ick_discovery_locked(_ick_p2pDiscovery))
+            if (_ick_discovery_locked(_ick_p2pDiscovery) == ICK_DISCOVERY_QUIT)
                 break;
             
             //            device = __ickGetDevice4socket(wsi);
@@ -556,9 +556,15 @@ static void *_ickReOpenWebsocket(void * UUID) {
 
 static void _ickOpenDeviceWebsocket(const char * UUID, enum ickDiscovery_command change, enum ickDevice_servicetype type) {
     // This is too simplicstic Controllers should connect to players but not other players
+#ifdef SUPPORT_ICK_SERVERS
+    if ((!(type & ICKDEVICE_PLAYER) && !(type & ICKDEVICE_SERVER_GENERIC)) ||
+        !(_ick_p2pDiscovery->services & ICKDEVICE_CONTROLLER))
+        return;
+#else
     if (!(type & ICKDEVICE_PLAYER) ||
         !(_ick_p2pDiscovery->services & ICKDEVICE_CONTROLLER))
         return;
+#endif
     switch (change) {
         case ICKDISCOVERY_ADD_DEVICE: {
             struct _ick_device_struct * device = _ickDeviceGet(UUID);
@@ -579,8 +585,11 @@ static void _ickOpenDeviceWebsocket(const char * UUID, enum ickDiscovery_command
 void _ickConnectUnconnectedPlayers(void) {
     struct _ick_device_struct * device = _ickDeviceGet(NULL);
     while (device) {
-        if ((device->type & ICKDEVICE_PLAYER) && (device->wsi == NULL))
-            __ickOpenWebsocket(device);
+#ifdef SUPPORT_ICK_SERVERS
+        if (((device->type & ICKDEVICE_PLAYER) || (device->type & ICKDEVICE_SERVER_GENERIC)) && (device->wsi == NULL))
+#else
+            if ((device->type & ICKDEVICE_PLAYER) && (device->wsi == NULL))
+#endif
         device = device->next;
     }
 }

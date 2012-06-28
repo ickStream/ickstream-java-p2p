@@ -70,6 +70,7 @@ typedef enum _ickTristate {
 #define UPNP_PORT       1900
 #define UPNP_MCAST_ADDR "239.255.255.250"
 #define LOCALHOST_ADDR  "127.0.0.1"
+#define SUPPORT_ICK_SERVERS 1
 
 struct _upnp_device;
 
@@ -153,11 +154,17 @@ struct _ick_discovery_struct {
 // use simple lock for quitting thread; discovery thread is a singleton right now
 
 // May change lock handling to something more sensible if needed... change here
+#define ICK_DISCOVERY_UNLOCKED  0
+#define ICK_DISCOVERY_LOCKED    1
+#define ICK_DISCOVERY_QUIT      -1
 static inline void _ick_unlock_discovery(ickDiscovery_t * discovery) {
-    discovery->lock = 0;
+    discovery->lock = ICK_DISCOVERY_UNLOCKED;
 }
 static inline void _ick_lock_discovery(ickDiscovery_t * discovery) {
-    discovery->lock = -1;
+    discovery->lock = ICK_DISCOVERY_LOCKED;
+}
+static inline void _ick_quit_discovery(ickDiscovery_t * discovery) {
+    discovery->lock = ICK_DISCOVERY_QUIT;
 }
 static inline int _ick_discovery_locked(ickDiscovery_t * discovery) {
     return discovery->lock;
@@ -229,9 +236,11 @@ break; \
 #define ICKDEVICE_TYPESTR_MISC          "urn:schemas-ickstream-com:device:"
 #define ICKDEVICE_TYPESTR_ROOT          "urn:schemas-ickstream-com:device:Root:1"
 #define ICKDEVICE_TYPESTR_PLAYER        "urn:schemas-ickstream-com:device:Player:1"
+#define ICKDEVICE_TYPESTR_SERVER        "urn:schemas-ickstream-com:device:Server:1"
 //#define ICKDEVICE_TYPESTR_PLAYER        "urn:schemas-upnp-org:device:MediaRenderer:1"
 #define ICKDEVICE_TYPESTR_CONTROLLER    "urn:schemas-ickstream-com:device:Controller:1"
 #define ICKDEVICE_STRING_PLAYER         "Player"
+#define ICKDEVICE_STRING_SERVER         "Server"
 #define ICKDEVICE_STRING_CONTROLLER     "Controller"
 #define ICKDEVICE_STRING_ROOT           "Root"
 
