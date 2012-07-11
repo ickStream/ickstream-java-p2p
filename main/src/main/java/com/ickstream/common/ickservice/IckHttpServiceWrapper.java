@@ -1,6 +1,8 @@
 package com.ickstream.common.ickservice;
 
 import com.ickstream.common.ickdiscovery.IckDiscovery;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -90,7 +92,7 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         try {
             httpRequest.setEntity(new StringEntity(message));
             HttpResponse httpResponse = httpClient.execute(httpRequest);
-            String responseString = EntityUtils.toString(httpResponse.getEntity());
+            String responseString = EntityUtils.toString(httpResponse.getEntity(),"utf-8");
             ickDiscovery.sendMessage(deviceId, responseString);
         } catch (ClientProtocolException e) {
             e.printStackTrace();
