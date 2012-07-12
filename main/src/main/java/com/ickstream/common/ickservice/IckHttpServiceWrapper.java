@@ -1,8 +1,6 @@
 package com.ickstream.common.ickservice;
 
 import com.ickstream.common.ickdiscovery.IckDiscovery;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -29,6 +27,7 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         String isDaemon = System.getProperty("com.ickstream.common.ickservice.daemon");
         if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
             try {
+                System.out.println("Starting in daemon mode");
                 System.in.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -36,7 +35,8 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         }
         if (customStdOut != null) {
             try {
-                System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(customStdOut, true))));
+                System.out.println("Redirecting stdout to: " + customStdOut);
+                System.setOut(new PrintStream(new FileOutputStream(customStdOut)));
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
@@ -45,10 +45,11 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         }
         if (customStdErr != null) {
             try {
+                System.err.println("Redirecting stderr to: " + customStdErr);
                 if (customStdOut != null && customStdErr.equals(customStdOut)) {
                     System.setErr(System.out);
                 } else {
-                    System.setErr(new PrintStream(new BufferedOutputStream(new FileOutputStream(customStdErr, true))));
+                    System.setErr(new PrintStream(new FileOutputStream(customStdErr)));
                 }
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
@@ -66,6 +67,7 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         ickDiscovery.initDiscovery(serviceId, ipAddress, name, null);
         ickDiscovery.addService(4);
         System.out.println(name + " initialized with identity " + serviceId + " using callback " + callbackUrl.toString());
+        System.out.flush();
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -92,8 +94,12 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         try {
             httpRequest.setEntity(new StringEntity(message));
             HttpResponse httpResponse = httpClient.execute(httpRequest);
-            String responseString = EntityUtils.toString(httpResponse.getEntity(),"utf-8");
-            ickDiscovery.sendMessage(deviceId, responseString);
+            if (httpResponse.getStatusLine().getStatusCode() < 400) {
+                String responseString = EntityUtils.toString(httpResponse.getEntity(), "utf-8");
+                if (responseString != null && responseString.length() > 0) {
+                    ickDiscovery.sendMessage(deviceId, responseString);
+                }
+            }
         } catch (ClientProtocolException e) {
             e.printStackTrace();
         } catch (UnsupportedEncodingException e) {
