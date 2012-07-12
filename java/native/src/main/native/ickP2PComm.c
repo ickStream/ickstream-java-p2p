@@ -554,11 +554,39 @@ static void *_ickReOpenWebsocket(void * UUID) {
     return NULL;
 }
 
+static int _wantToConnect(enum ickDevice_servicetype myType, enum ickDevice_servicetype otherType) {
+    // I'm a controller, so I want to connect to servers and players, not other controllers
+    if (myType & ICKDEVICE_CONTROLLER) {
+        if (otherType & ICKDEVICE_SERVER_GENERIC)
+            return 1;
+        if (otherType & ICKDEVICE_PLAYER)
+            return 1;
+    }
+    // I'm a player, so I want to connect to controllers and servers
+    if (myType & ICKDEVICE_PLAYER) {
+        if (otherType & ICKDEVICE_SERVER_GENERIC)
+            return 1;
+        if (otherType & ICKDEVICE_CONTROLLER)
+            return 1;
+    }
+    // I'm a server, so I want to connect to players and controllers
+    // TBD: DO we also want to connect to other servers?
+    if (myType & ICKDEVICE_SERVER_GENERIC) {
+        if (otherType & ICKDEVICE_PLAYER)
+            return 1;
+        if (otherType & ICKDEVICE_CONTROLLER)
+            return 1;
+    }
+        
+    // I idn't find a reason to connect? So don't...
+    return 0;
+}
+
+
 static void _ickOpenDeviceWebsocket(const char * UUID, enum ickDiscovery_command change, enum ickDevice_servicetype type) {
     // This is too simplicstic Controllers should connect to players but not other players
 #ifdef SUPPORT_ICK_SERVERS
-    if ((!(type & ICKDEVICE_PLAYER) && !(type & ICKDEVICE_SERVER_GENERIC)) ||
-        !(_ick_p2pDiscovery->services & ICKDEVICE_CONTROLLER))
+    if (!_wantToConnect(_ick_p2pDiscovery->services, type))
         return;
 #else
     if (!(type & ICKDEVICE_PLAYER) ||
