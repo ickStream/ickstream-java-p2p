@@ -91,9 +91,9 @@
                         </source>
                     </sources>
 
-					<compilerStartOptions>
-						<compilerStartOption>-DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
-					</compilerStartOptions>
+                    <compilerStartOptions>
+                        <compilerStartOption>-DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
+                    </compilerStartOptions>
                     <linkerStartOptions>
                         <linkerStartOption>-dynamiclib -lz</linkerStartOption>
                     </linkerStartOptions>
@@ -110,7 +110,7 @@
                             <workingDirectory>${basedir}</workingDirectory>
                             <javahOutputFileName>ickDiscoveryJNI.h</javahOutputFileName>
                             <javahClassNames>
-                                <javahClassName>com.ickstream.common.ickdiscovery.IckDiscovery</javahClassName>
+                                <javahClassName>com.ickstream.common.ickdiscovery.IckDiscoveryJNI</javahClassName>
                             </javahClassNames>
                         </configuration>
                         <goals>

@@ -5,54 +5,78 @@
 
 package com.ickstream.common.ickdiscovery;
 
-import com.ickstream.protocol.device.DeviceListener;
-import com.ickstream.protocol.device.MessageListener;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.util.*;
 
-public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
-{
+public class IckDiscoveryJNI implements IckDiscovery {
 
-	public native void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
+    @Override
+    public native void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
+
+    @Override
     public native void endDiscovery();
+
     public native void addService(int service);
+
     public native void removeService(int service);
-    public native String[] getDeviceList(int types);
-    public native int getDeviceType(String deviceId);
+
+    @Override
     public native String getDeviceName(String deviceId);
+
+    @Override
     public native void sendMessage(String deviceId, String message);
+
+    @Override
     public void sendMessage(String message) {
         sendMessage(null, message);
     }
 
-    public IckDiscovery() {
+
+    @Override
+    public void addService(ServiceType serviceType) {
+        addService(serviceType.value());
+    }
+
+    @Override
+    public void removeService(ServiceType serviceType) {
+        addService(serviceType.value());
+    }
+
+    public IckDiscoveryJNI() {
+        this(null);
+    }
+
+    public IckDiscoveryJNI(String libraryName) {
         try {
-            System.loadLibrary("ickDiscoveryJNI");
-        }catch(UnsatisfiedLinkError e) {
+            if (libraryName == null) {
+                libraryName = "ickDiscoveryJNI";
+            }
+            System.loadLibrary(libraryName);
+        } catch (UnsatisfiedLinkError e) {
             String classPath = System.getProperty("java.class.path", "");
             List<String> classPathElements = new ArrayList<String>(Arrays.asList(classPath.split(":")));
             Boolean loaded = false;
-            if(classPath.matches(".*/libickDiscoveryJNI.*")) {
+            if (classPath.matches(".*/libickDiscoveryJNI.*")) {
                 for (String classPathElement : classPathElements) {
-                    if(classPathElement.matches(".*/libickDiscoveryJNI.*")) {
+                    if (classPathElement.matches(".*/libickDiscoveryJNI.*")) {
                         System.load(classPathElement);
                         loaded = true;
                         break;
                     }
                 }
-            }else {
+            } else {
                 String path = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
-                if(path != null) {
+                if (path != null) {
                     File files[] = new File(path).getParentFile().listFiles(new FileFilter() {
                         @Override
                         public boolean accept(File file) {
                             return file.getName().matches("libickDiscoveryJNI.*");
                         }
                     });
-                    if(files.length>0) {
+                    if (files.length > 0) {
                         try {
                             System.load(files[0].getCanonicalPath());
                             loaded = true;
@@ -62,7 +86,7 @@ public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
                     }
                 }
             }
-            if(!loaded) {
+            if (!loaded) {
                 throw e;
             }
         }
@@ -73,16 +97,17 @@ public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
             listener.onMessage(deviceId, message);
         }
     }
+
     private void onDevice(final String deviceId, final int change, final int services) {
         for (final DeviceListener listener : deviceListeners) {
-            if(change == 0) {
+            if (change == 0) {
                 final String deviceName = getDeviceName(deviceId);
-                listener.onDeviceAdded(deviceId, deviceName, services);
-            }else if(change == 1) {
+                listener.onDeviceAdded(deviceId, deviceName, ServiceType.valueOf(services));
+            } else if (change == 1) {
                 listener.onDeviceRemoved(deviceId);
-            }else {
+            } else {
                 final String deviceName = getDeviceName(deviceId);
-                listener.onDeviceUpdated(deviceId, deviceName, services);
+                listener.onDeviceUpdated(deviceId, deviceName, ServiceType.valueOf(services));
             }
         }
     }
@@ -91,14 +116,12 @@ public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
     private Set<DeviceListener> deviceListeners = new HashSet<DeviceListener>();
     private Set<MessageListener> messageListeners = new HashSet<MessageListener>();
 
-    public static final int SERVICE_GENERIC = 0;
-    public static final int SERVICE_PLAYER = 1;
-    public static final int SERVICE_CONTROLLER = 2;
-    public static final int SERVICE_SERVER_GENERIC = 4;
-
+    @Override
     public void addDeviceListener(DeviceListener listener) {
         deviceListeners.add(listener);
     }
+
+    @Override
     public void addMessageListener(MessageListener listener) {
         messageListeners.add(listener);
     }

@@ -1,6 +1,6 @@
 //
 //  ickDiscoveryJNI.c
-//  ickStreamP2P Java JNI Wrapper
+//  ickDiscovery JNI Wrapper
 //
 // Copyright (C) 2012 Erland Isaksson (erland@isaksson.info)
 // All rights reserved.
@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <jni.h>
-#include <ickDiscoveryJNI.h>
+#ifdef __ANDROID_API__
+#include <android/log.h>
+#endif
 #include "ickDiscovery.h"
 
 JavaVM* gJavaVM = NULL;
@@ -22,6 +24,11 @@ void onMessage(const char * szDeviceId, const void * message, size_t messageLeng
     JNIEnv *env;
     if ((*gJavaVM)->GetEnv(gJavaVM, (void**) &env, JNI_VERSION_1_4) != JNI_OK) {
         if((*gJavaVM)->AttachCurrentThread(gJavaVM, &env, NULL) < 0) {
+#ifdef __ANDROID_API__
+            __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Failed to get the environment or attach thread");
+#else
+            puts("Failed to get the environment or attach thread");
+#endif
             return;
         }
         attached = 1;
@@ -46,14 +53,15 @@ void onDevice(const char * szDeviceId, enum ickDiscovery_command change, enum ic
     int attached = 0;
     if ((*gJavaVM)->GetEnv(gJavaVM, (void**) &env, JNI_VERSION_1_4) != JNI_OK) {
         if((*gJavaVM)->AttachCurrentThread(gJavaVM, &env, NULL) < 0) {
+#ifdef __ANDROID_API__
+            __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Failed to get the environment or attach thread");
+#else
+            puts("Failed to get the environment or attach thread");
+#endif
             return;
         }
         attached = 1;
     }
-    //TODO: Remove this, ugly hack when ickDiscovery supports connections
-    //if(strcmp(szDeviceId,myDeviceId) != 0 && (change==ICKDISCOVERY_ADD_DEVICE || change == ICKDISCOVERY_UPDATE_DEVICE)) {
-    //    ickMessagingInitConnection(szDeviceId);
-    //}
 
     if(gService != NULL) {
         jclass cls = (*env)->GetObjectClass(env, gService);
@@ -77,16 +85,24 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     gJavaVM = vm;
     JNIEnv* env;
     if ((*vm)->GetEnv(vm, (void**) &env, JNI_VERSION_1_4) != JNI_OK) {
-        puts("OnLoad failure");
+#ifdef __ANDROID_API__
+        __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Failed to get the environment or attach thread");
+#else
+            puts("Failed to get the environment or attach thread");
+#endif
         return -1;
     }
-    puts("OnLoad successful");
+#ifdef __ANDROID_API__
+#ifdef DEBUG
+    freopen("/sdcard/ickStreamPlayer.log", "w", stderr);
+#endif
+#endif
+
     return JNI_VERSION_1_4;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_initDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
 {
-    puts("Discovery started");
     gService = (*env)->NewGlobalRef(env, service);
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
     const char * szDeviceName = (*env)->GetStringUTFChars(env, deviceNameJava, NULL);
@@ -95,8 +111,6 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * 
     ickDeviceRegisterMessageCallback(&onMessage);
     ickDeviceRegisterDeviceCallback(&onDevice);
 
-    //TODO: Remove this later, ugly hack until ickDiscovery supports connections
-    //ickInitMessaging(szDeviceId, szInterface);
     if(myDeviceId != NULL) {
         free(myDeviceId);
     }
@@ -115,58 +129,24 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_initDiscovery(JNIEnv * 
     (*env)->ReleaseStringUTFChars(env, interfaceJava, szInterface);
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscovery_endDiscovery(JNIEnv * env, jobject service)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_endDiscovery(JNIEnv * env, jobject service)
 {
-    //ickEndMessaging(1);
     ickEndDiscovery(1);
     (*env)->DeleteGlobalRef(env, gService);
     gService = NULL;
-    puts("Discovery stopped");
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscovery_addService(JNIEnv * env, jobject this, jint type)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_addService(JNIEnv * env, jobject this, jint type)
 {
     ickDiscoveryAddService(type);
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscovery_removeService(JNIEnv * env, jobject this, jint type)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_removeService(JNIEnv * env, jobject this, jint type)
 {
     ickDiscoveryRemoveService(type);
 }
 
-/*
-jobjectArray Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceList(JNIEnv * env, jobject this, jint type)
-{
-    char** devices = ickDeviceList(type);
-    int size=0;
-    char** current = devices;
-    while(current != NULL) {
-        size=size+1;
-        current = current + 1;
-    }
-    current = devices;
-    jobjectArray result;
-    result = (*env)->NewObjectArray(env, size, (*env)->FindClass(env, "java/lang/String"), (*env)->NewStringUTF(env, ""));
-    if(result == NULL) {
-        return NULL;
-    }
-    int i;
-    for(i=0;i<size;i++) {
-        (*env)->SetObjectArrayElement(env, result, i, (*env)->NewStringUTF(env, devices[i]));
-    }
-    return result;
-}
-*/
-
-jint Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceType(JNIEnv * env, jobject this, jstring deviceIdJava)
-{
-    const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
-    jint type = ickDeviceType(szDeviceId);
-    (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
-    return type;
-}
-
-jstring Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceName(JNIEnv * env, jobject this, jstring deviceIdJava)
+jstring Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDeviceName(JNIEnv * env, jobject this, jstring deviceIdJava)
 {
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
     const char * szName = ickDeviceName(szDeviceId);
@@ -175,7 +155,7 @@ jstring Java_com_ickstream_common_ickdiscovery_IckDiscovery_getDeviceName(JNIEnv
     return name;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscovery_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jstring messageJava)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jstring messageJava)
 {
     const char * szDeviceId = NULL;
     if (deviceIdJava != NULL) {
@@ -192,6 +172,3 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscovery_sendMessage(JNIEnv * en
         (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
     }
 }
-
-
-
