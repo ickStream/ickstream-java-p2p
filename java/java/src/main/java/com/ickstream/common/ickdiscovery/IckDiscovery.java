@@ -5,6 +5,9 @@
 
 package com.ickstream.common.ickdiscovery;
 
+import com.ickstream.protocol.device.DeviceListener;
+import com.ickstream.protocol.device.MessageListener;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -70,35 +73,29 @@ public class IckDiscovery implements com.ickstream.protocol.device.MessageSender
             listener.onMessage(deviceId, message);
         }
     }
-    private void onDevice(String deviceId, int change, int services) {
-        for (DeviceListener listener : deviceListeners) {
+    private void onDevice(final String deviceId, final int change, final int services) {
+        for (final DeviceListener listener : deviceListeners) {
             if(change == 0) {
-                listener.onDeviceAdded(deviceId, services);
+                final String deviceName = getDeviceName(deviceId);
+                listener.onDeviceAdded(deviceId, deviceName, services);
             }else if(change == 1) {
                 listener.onDeviceRemoved(deviceId);
             }else {
-                listener.onDeviceUpdated(deviceId, services);
+                final String deviceName = getDeviceName(deviceId);
+                listener.onDeviceUpdated(deviceId, deviceName, services);
             }
         }
     }
 
 
-    private Set<DeviceListener> deviceListeners = new TreeSet<DeviceListener>();
-    private Set<MessageListener> messageListeners = new TreeSet<MessageListener>();
+    private Set<DeviceListener> deviceListeners = new HashSet<DeviceListener>();
+    private Set<MessageListener> messageListeners = new HashSet<MessageListener>();
 
     public static final int SERVICE_GENERIC = 0;
     public static final int SERVICE_PLAYER = 1;
     public static final int SERVICE_CONTROLLER = 2;
     public static final int SERVICE_SERVER_GENERIC = 4;
 
-    public static interface DeviceListener {
-        void onDeviceAdded(String deviceId, int services);
-        void onDeviceUpdated(String deviceId, int services);
-        void onDeviceRemoved(String deviceId);
-    }
-    public static interface MessageListener {
-        void onMessage(String deviceId, String message);
-    }
     public void addDeviceListener(DeviceListener listener) {
         deviceListeners.add(listener);
     }
