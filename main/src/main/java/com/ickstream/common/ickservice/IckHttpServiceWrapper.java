@@ -1,6 +1,9 @@
 package com.ickstream.common.ickservice;
 
 import com.ickstream.common.ickdiscovery.IckDiscovery;
+import com.ickstream.common.ickdiscovery.IckDiscoveryJNI;
+import com.ickstream.common.ickdiscovery.MessageListener;
+import com.ickstream.common.ickdiscovery.ServiceType;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -16,9 +19,9 @@ import java.util.Enumeration;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
+public class IckHttpServiceWrapper implements MessageListener {
     private URL callbackUrl;
-    private IckDiscovery ickDiscovery = new IckDiscovery();
+    private IckDiscovery ickDiscovery = new IckDiscoveryJNI();
     HttpClient httpClient;
 
     private IckHttpServiceWrapper(String serviceId, final String name, URL callbackUrl) throws BackingStoreException {
@@ -65,7 +68,7 @@ public class IckHttpServiceWrapper implements IckDiscovery.MessageListener {
         httpClient = new DefaultHttpClient();
         ickDiscovery.addMessageListener(this);
         ickDiscovery.initDiscovery(serviceId, ipAddress, name, null);
-        ickDiscovery.addService(4);
+        ickDiscovery.addService(ServiceType.SERVICE);
         System.out.println(name + " initialized with identity " + serviceId + " using callback " + callbackUrl.toString());
         System.out.flush();
         Runtime.getRuntime().addShutdownHook(new Thread() {
