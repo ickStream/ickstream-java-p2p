@@ -366,7 +366,7 @@ int ickDiscoveryAddService(enum ickDevice_servicetype type) {
         free(location);
         free(usn);
     }
-    if (!(_ick_discovery.services & ICKDEVICE_PLAYER) && (type & ICKDEVICE_SERVER_GENERIC)) {
+    if (!(_ick_discovery.services & ICKDEVICE_SERVER_GENERIC) && (type & ICKDEVICE_SERVER_GENERIC)) {
         asprintf(&location, ICKDEVICE_TYPESTR_LOCATION, _ick_discovery.location, _ick_discovery.websocket_port, ICKDEVICE_STRING_SERVER);
         asprintf(&usn, ICKDEVICE_TYPESTR_USN, _ick_discovery.UUID, ICKDEVICE_TYPESTR_SERVER);
         _ick_add_service(ICKDEVICE_TYPESTR_SERVER, usn, server_name, location);
@@ -394,15 +394,15 @@ int ickDiscoveryAddService(enum ickDevice_servicetype type) {
 int ickDiscoveryRemoveService(enum ickDevice_servicetype type) {
     // Remove player
     if (type & ICKDEVICE_PLAYER)
-        _ick_remove_service(ICKDEVICE_TYPESTR_PLAYER);
+        _ick_remove_service(ICKDEVICE_TYPESTR_PLAYER, true);
 #ifdef SUPPORT_ICK_SERVERS
     // Remove server
     if (type & ICKDEVICE_SERVER_GENERIC)
-        _ick_remove_service(ICKDEVICE_TYPESTR_SERVER);
+        _ick_remove_service(ICKDEVICE_TYPESTR_SERVER, true);
 #endif
     // Remove controller
     if (type & ICKDEVICE_CONTROLLER)
-        _ick_remove_service(ICKDEVICE_TYPESTR_CONTROLLER);
+        _ick_remove_service(ICKDEVICE_TYPESTR_CONTROLLER, true);
     _ick_discovery.services &= ~type;
     
     return 0;
