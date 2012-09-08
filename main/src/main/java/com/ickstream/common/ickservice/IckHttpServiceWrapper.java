@@ -23,8 +23,13 @@ public class IckHttpServiceWrapper implements MessageListener {
     private URL callbackUrl;
     private IckDiscovery ickDiscovery = new IckDiscoveryJNI();
     HttpClient httpClient;
+    Boolean debug = Boolean.FALSE;
 
     private IckHttpServiceWrapper(String serviceId, final String name, URL callbackUrl) throws BackingStoreException {
+        String debugString = System.getProperty("com.ickstream.common.ickservice.debug");
+        if (debugString != null && debugString.equalsIgnoreCase("true")) {
+            debug = Boolean.TRUE;
+        }
         String customStdOut = System.getProperty("com.ickstream.common.ickservice.stdout");
         String customStdErr = System.getProperty("com.ickstream.common.ickservice.stderr");
         String isDaemon = System.getProperty("com.ickstream.common.ickservice.daemon");
@@ -93,6 +98,10 @@ public class IckHttpServiceWrapper implements MessageListener {
 
     @Override
     public void onMessage(String deviceId, String message) {
+        if (debug) {
+            System.out.println("From " + deviceId + ": " + message);
+            System.out.flush();
+        }
         HttpPost httpRequest = new HttpPost(callbackUrl.toString());
         try {
             httpRequest.setEntity(new StringEntity(message));
@@ -100,15 +109,25 @@ public class IckHttpServiceWrapper implements MessageListener {
             if (httpResponse.getStatusLine().getStatusCode() < 400) {
                 String responseString = EntityUtils.toString(httpResponse.getEntity(), "utf-8");
                 if (responseString != null && responseString.length() > 0) {
+                    if (debug) {
+                        System.out.println("To " + deviceId + ": " + responseString);
+                        System.out.flush();
+                    }
                     ickDiscovery.sendMessage(deviceId, responseString);
                 }
             }
         } catch (ClientProtocolException e) {
+            System.err.println("Error handling message from " + deviceId + ": " + message);
             e.printStackTrace();
+            System.err.flush();
         } catch (UnsupportedEncodingException e) {
+            System.err.println("Error handling message from " + deviceId + ": " + message);
             e.printStackTrace();
+            System.err.flush();
         } catch (IOException e) {
+            System.err.println("Error handling message from " + deviceId + ": " + message);
             e.printStackTrace();
+            System.err.flush();
         }
     }
 
