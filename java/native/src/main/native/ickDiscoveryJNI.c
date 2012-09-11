@@ -165,7 +165,30 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv *
 
     size_t messageLength = (*env)->GetStringUTFLength(env, messageJava);
 
-    ickDeviceSendMsg(szDeviceId, szMessage, messageLength);
+    int i=0;
+    while(i<10) {
+        if(ickDeviceSendMsg(szDeviceId, szMessage, messageLength) == ICKMESSAGE_SUCCESS) {
+#ifdef __ANDROID_API__
+            __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Succeeded to send message");
+#else
+            puts("Succeeded to send message");
+            puts(szMessage);
+            fflush(stdout);
+#endif
+            break;
+        }
+        sleep(1);
+        i++;
+    }
+    if(i==10) {
+#ifdef __ANDROID_API__
+        __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Failed to send message");
+#else
+        puts("Failed to send message");
+        puts(szMessage);
+        fflush(stdout);
+#endif
+    }
 
     (*env)->ReleaseStringUTFChars(env, messageJava, szMessage);
     if (szDeviceId != NULL) {
