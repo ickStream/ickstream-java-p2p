@@ -168,13 +168,6 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv *
     int i=0;
     while(i<10) {
         if(ickDeviceSendMsg(szDeviceId, szMessage, messageLength) == ICKMESSAGE_SUCCESS) {
-#ifdef __ANDROID_API__
-            __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Succeeded to send message");
-#else
-            puts("Succeeded to send message");
-            puts(szMessage);
-            fflush(stdout);
-#endif
             break;
         }
         sleep(1);
