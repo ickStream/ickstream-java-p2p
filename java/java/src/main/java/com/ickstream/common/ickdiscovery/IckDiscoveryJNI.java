@@ -50,18 +50,19 @@ public class IckDiscoveryJNI implements IckDiscovery {
     }
 
     public IckDiscoveryJNI(String libraryName) {
+        final String postfix = System.getProperty("os.arch").contains("64")?"64":"";
         try {
             if (libraryName == null) {
-                libraryName = "ickDiscoveryJNI";
+                libraryName = "ickDiscoveryJNI"+postfix;
             }
             System.loadLibrary(libraryName);
         } catch (UnsatisfiedLinkError e) {
             String classPath = System.getProperty("java.class.path", "");
             List<String> classPathElements = new ArrayList<String>(Arrays.asList(classPath.split(":")));
             Boolean loaded = false;
-            if (classPath.matches(".*/libickDiscoveryJNI.*")) {
+            if (classPath.matches(".*/libickDiscoveryJNI"+postfix+".*")) {
                 for (String classPathElement : classPathElements) {
-                    if (classPathElement.matches(".*/libickDiscoveryJNI.*")) {
+                    if (classPathElement.matches(".*/libickDiscoveryJNI"+postfix+".*")) {
                         System.load(classPathElement);
                         loaded = true;
                         break;
@@ -73,7 +74,7 @@ public class IckDiscoveryJNI implements IckDiscovery {
                     File files[] = new File(path).getParentFile().listFiles(new FileFilter() {
                         @Override
                         public boolean accept(File file) {
-                            return file.getName().matches("libickDiscoveryJNI.*");
+                            return file.getName().matches("libickDiscoveryJNI"+postfix+".*");
                         }
                     });
                     if (files.length > 0) {

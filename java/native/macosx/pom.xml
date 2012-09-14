@@ -92,10 +92,10 @@
                     </sources>
 
                     <compilerStartOptions>
-                        <compilerStartOption>-DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
+                        <compilerStartOption>-m32 -DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
                     </compilerStartOptions>
                     <linkerStartOptions>
-                        <linkerStartOption>-dynamiclib -lz</linkerStartOption>
+                        <linkerStartOption>-m32 -dynamiclib -lz</linkerStartOption>
                     </linkerStartOptions>
 
                 </configuration>

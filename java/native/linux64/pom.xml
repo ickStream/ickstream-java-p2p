@@ -8,9 +8,9 @@
     </parent>
 
     <groupId>com.ickstream.common.ickdiscovery.java</groupId>
-    <artifactId>libickDiscoveryJNI</artifactId>
+    <artifactId>libickDiscoveryJNI64</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <name>ickDiscovery Java Wrapper - Native Linux</name>
+    <name>ickDiscovery Java Wrapper - Native Linux 64 bit</name>
     <url>http://maven.apache.org</url>
 
     <packaging>so</packaging>
@@ -90,10 +90,10 @@
                     </sources>
 
                     <compilerStartOptions>
-                        <compilerStartOption>-m32 -DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
+                        <compilerStartOption>-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
                     </compilerStartOptions>
                     <linkerStartOptions>
-                        <linkerStartOption>-m32 -shared -lz</linkerStartOption>
+                        <linkerStartOption>-m64 -shared -lz</linkerStartOption>
                     </linkerStartOptions>
 
                 </configuration>
