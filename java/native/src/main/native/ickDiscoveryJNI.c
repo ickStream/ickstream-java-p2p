@@ -37,7 +37,10 @@ void onMessage(const char * szDeviceId, const void * message, size_t messageLeng
         jclass cls = (*env)->GetObjectClass(env, gService);
         jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onMessage", "(Ljava/lang/String;Ljava/lang/String;)V");
         if(onMessageID != NULL) {
-            jstring messageJava = (*env)->NewStringUTF(env, message);
+            char * tempMessage = malloc(messageLength + 1);
+            memcpy(tempMessage,message,messageLength);
+            tempMessage[messageLength]='\0';
+            jstring messageJava = (*env)->NewStringUTF(env, tempMessage);
             jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
             (*env)->CallVoidMethod(env, gService, onMessageID, deviceJava, messageJava);
         }
