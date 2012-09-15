@@ -26,7 +26,7 @@
                 </os>
             </activation>
             <modules>
-                <module>linux</module>
+                <module>linux32</module>
 		<module>linux64</module>
             </modules>
         </profile>
@@ -39,7 +39,7 @@
                 </os>
             </activation>
             <modules>
-                <module>macosx</module>
+                <module>macosx32</module>
 		<module>macosx64</module>
             </modules>
         </profile>

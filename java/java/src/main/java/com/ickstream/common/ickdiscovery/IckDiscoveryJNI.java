@@ -51,7 +51,7 @@ public class IckDiscoveryJNI implements IckDiscovery {
     }
 
     public IckDiscoveryJNI(String libraryName) {
-        final String postfix = System.getProperty("os.arch").contains("64")?"64":"";
+        final String postfix = System.getProperty("os.arch").contains("64")?"64":"32";
         try {
             if (libraryName == null) {
                 libraryName = "ickDiscoveryJNI"+postfix;

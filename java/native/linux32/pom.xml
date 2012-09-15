@@ -8,9 +8,9 @@
     </parent>
 
     <groupId>com.ickstream.common.ickdiscovery.java</groupId>
-    <artifactId>libickDiscoveryJNI</artifactId>
+    <artifactId>libickDiscoveryJNI32</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <name>ickDiscovery Java Wrapper - Native Linux</name>
+    <name>ickDiscovery Java Wrapper - Native Linux 32 bit</name>
     <url>http://maven.apache.org</url>
 
     <packaging>so</packaging>
