@@ -12,7 +12,8 @@
             <outputDirectory>/</outputDirectory>
             <includes>
                 <include>com.ickstream.common.ickservice:ickHttpServiceWrapper:*</include>
-                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI</include>
+                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI32</include>
+                <include>com.ickstream.common.ickdiscovery.java:libickDiscoveryJNI64</include>
             </includes>
             <useProjectArtifact>true</useProjectArtifact>
             <unpack>false</unpack>
