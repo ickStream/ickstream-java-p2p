@@ -97,14 +97,14 @@ public class IckHttpServiceWrapper implements MessageListener {
     }
 
     @Override
-    public void onMessage(String deviceId, String message) {
+    public void onMessage(String deviceId, byte[] message) {
         if (debug) {
             System.out.println("From " + deviceId + ": " + message);
             System.out.flush();
         }
         HttpPost httpRequest = new HttpPost(callbackUrl.toString());
         try {
-            httpRequest.setEntity(new StringEntity(message));
+            httpRequest.setEntity(new StringEntity(new String(message,"UTF-8")));
             HttpResponse httpResponse = httpClient.execute(httpRequest);
             if (httpResponse.getStatusLine().getStatusCode() < 400) {
                 String responseString = EntityUtils.toString(httpResponse.getEntity(), "utf-8");
@@ -113,7 +113,7 @@ public class IckHttpServiceWrapper implements MessageListener {
                         System.out.println("To " + deviceId + ": " + responseString);
                         System.out.flush();
                     }
-                    ickDiscovery.sendMessage(deviceId, responseString);
+                    ickDiscovery.sendMessage(deviceId, responseString.getBytes("UTF-8"));
                 }
             }
         } catch (ClientProtocolException e) {
