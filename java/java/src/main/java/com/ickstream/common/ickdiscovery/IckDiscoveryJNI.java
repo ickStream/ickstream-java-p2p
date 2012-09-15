@@ -9,6 +9,7 @@ package com.ickstream.common.ickdiscovery;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.*;
 
 public class IckDiscoveryJNI implements IckDiscovery {
@@ -27,10 +28,10 @@ public class IckDiscoveryJNI implements IckDiscovery {
     public native String getDeviceName(String deviceId);
 
     @Override
-    public native void sendMessage(String deviceId, String message);
+    public native void sendMessage(String deviceId, byte[] message);
 
     @Override
-    public void sendMessage(String message) {
+    public void sendMessage(byte[] message) {
         sendMessage(null, message);
     }
 
@@ -93,7 +94,7 @@ public class IckDiscoveryJNI implements IckDiscovery {
         }
     }
 
-    private void onMessage(String deviceId, String message) {
+    private void onMessage(String deviceId, byte[] message) {
         for (MessageListener listener : messageListeners) {
             listener.onMessage(deviceId, message);
         }

@@ -6,5 +6,5 @@
 package com.ickstream.common.ickdiscovery;
 
 public interface MessageListener {
-    void onMessage(String deviceId, String message);
+    void onMessage(String deviceId, byte[] message);
 }

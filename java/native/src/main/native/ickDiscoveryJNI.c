@@ -35,12 +35,10 @@ void onMessage(const char * szDeviceId, const void * message, size_t messageLeng
     }
     if(gService != NULL) {
         jclass cls = (*env)->GetObjectClass(env, gService);
-        jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onMessage", "(Ljava/lang/String;Ljava/lang/String;)V");
+        jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onMessage", "(Ljava/lang/String;[B)V");
         if(onMessageID != NULL) {
-            char * tempMessage = malloc(messageLength + 1);
-            memcpy(tempMessage,message,messageLength);
-            tempMessage[messageLength]='\0';
-            jstring messageJava = (*env)->NewStringUTF(env, tempMessage);
+            jbyteArray messageJava = (*env)->NewByteArray(env, messageLength);
+            (*env)->SetByteArrayRegion(env, messageJava, 0, messageLength, message);
             jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
             (*env)->CallVoidMethod(env, gService, onMessageID, deviceJava, messageJava);
         }
@@ -158,19 +156,19 @@ jstring Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDeviceName(JNI
     return name;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jstring messageJava)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jbyteArray messageJava)
 {
     const char * szDeviceId = NULL;
     if (deviceIdJava != NULL) {
         szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
     }
-    const char * szMessage = (*env)->GetStringUTFChars(env, messageJava, NULL);
 
-    size_t messageLength = (*env)->GetStringUTFLength(env, messageJava);
+    jbyte* byteMessage = (*env)->GetByteArrayElements(env, messageJava, NULL);
+    jsize messageLength = (*env)->GetArrayLength(env, messageJava);
 
     int i=0;
     while(i<10) {
-        if(ickDeviceSendMsg(szDeviceId, szMessage, messageLength) == ICKMESSAGE_SUCCESS) {
+        if(ickDeviceSendMsg(szDeviceId, byteMessage, messageLength) == ICKMESSAGE_SUCCESS) {
             break;
         }
         sleep(1);
@@ -181,12 +179,11 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv *
         __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Failed to send message");
 #else
         puts("Failed to send message");
-        puts(szMessage);
         fflush(stdout);
 #endif
     }
 
-    (*env)->ReleaseStringUTFChars(env, messageJava, szMessage);
+    (*env)->ReleaseByteArrayElements(env, messageJava, byteMessage, JNI_ABORT);
     if (szDeviceId != NULL) {
         (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
     }
