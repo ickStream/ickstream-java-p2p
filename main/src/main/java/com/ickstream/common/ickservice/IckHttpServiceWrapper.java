@@ -13,8 +13,6 @@ import java.io.*;
 import java.net.*;
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.prefs.BackingStoreException;
-import java.util.prefs.Preferences;
 
 public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     private URL callbackUrl;
@@ -22,7 +20,7 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     HttpClient httpClient;
     Boolean debug = Boolean.FALSE;
 
-    private IckHttpServiceWrapper(String serviceId, final String name, URL callbackUrl) throws BackingStoreException {
+    private IckHttpServiceWrapper(String serviceId, final String name, URL callbackUrl) {
         String debugString = System.getProperty("com.ickstream.common.ickservice.debug");
         if (debugString != null && debugString.equalsIgnoreCase("true")) {
             debug = Boolean.TRUE;
@@ -64,8 +62,6 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
         }
 
         this.callbackUrl = callbackUrl;
-        Preferences preferences = Preferences.userNodeForPackage(this.getClass());
-        preferences.flush();
         String ipAddress = getCurrentNetworkAddress();
         httpClient = new DefaultHttpClient();
         ickDiscovery.addMessageListener(this);
@@ -201,9 +197,6 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
             } catch (MalformedURLException e) {
                 e.printStackTrace();
                 System.exit(2);
-            } catch (BackingStoreException e) {
-                e.printStackTrace();
-                System.exit(3);
             }
         } else {
             System.err.println("Invalid parameters, should be called with <uuid> <name> <url> as parameters");
