@@ -115,19 +115,23 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     }
 
     @Override
-    public void onMessage(String deviceId, byte[] message) {
+    public void onMessage(String deviceId, byte[] byteMessage) {
+        String message;
+        try {
+            message = new String(byteMessage, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            // Just ignore, we should always get UTF-8
+            e.printStackTrace();
+            System.err.flush();
+            return;
+        }
         if (debug) {
-            try {
-                System.out.println("From " + deviceId + ": " + new String(message, "UTF-8"));
-                System.out.flush();
-            } catch (UnsupportedEncodingException e) {
-                // Just ignore, we should always get UTF-8
-                e.printStackTrace();
-            }
+            System.out.println("From " + deviceId + ": " + message);
+            System.out.flush();
         }
         HttpPost httpRequest = new HttpPost(callbackUrl.toString());
         try {
-            httpRequest.setEntity(new StringEntity(new String(message, "UTF-8")));
+            httpRequest.setEntity(new StringEntity(message));
             HttpResponse httpResponse = httpClient.execute(httpRequest);
             if (httpResponse.getStatusLine().getStatusCode() < 400) {
                 String responseString = EntityUtils.toString(httpResponse.getEntity(), "utf-8");
