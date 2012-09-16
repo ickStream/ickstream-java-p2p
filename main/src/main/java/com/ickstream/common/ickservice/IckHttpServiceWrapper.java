@@ -1,9 +1,6 @@
 package com.ickstream.common.ickservice;
 
-import com.ickstream.common.ickdiscovery.IckDiscovery;
-import com.ickstream.common.ickdiscovery.IckDiscoveryJNI;
-import com.ickstream.common.ickdiscovery.MessageListener;
-import com.ickstream.common.ickdiscovery.ServiceType;
+import com.ickstream.common.ickdiscovery.*;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
@@ -19,7 +16,7 @@ import java.util.Enumeration;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-public class IckHttpServiceWrapper implements MessageListener {
+public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     private URL callbackUrl;
     private IckDiscovery ickDiscovery = new IckDiscoveryJNI();
     HttpClient httpClient;
@@ -72,16 +69,19 @@ public class IckHttpServiceWrapper implements MessageListener {
         String ipAddress = getCurrentNetworkAddress();
         httpClient = new DefaultHttpClient();
         ickDiscovery.addMessageListener(this);
+        ickDiscovery.addDeviceListener(this);
         ickDiscovery.initDiscovery(serviceId, ipAddress, name, null);
         ickDiscovery.addService(ServiceType.SERVICE);
-        System.out.println(name + " initialized with identity " + serviceId + " using callback " + callbackUrl.toString());
+        System.out.println(name + " initialized with identity " + serviceId + " at " + ipAddress + " using callback " + callbackUrl.toString());
         System.out.flush();
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
                 System.out.println(name + " is about to shutdown");
+                System.out.flush();
                 ickDiscovery.endDiscovery();
                 System.out.println(name + " shutdown");
+                System.out.flush();
             }
         });
         synchronized (this) {
@@ -94,6 +94,24 @@ public class IckHttpServiceWrapper implements MessageListener {
                 }
             }
         }
+    }
+
+    @Override
+    public void onDeviceAdded(String deviceId, String deviceName, ServiceType serviceType) {
+        System.out.println("New device: " + deviceId + "(" + deviceName + ") of type " + serviceType.toString());
+        System.out.flush();
+    }
+
+    @Override
+    public void onDeviceUpdated(String deviceId, String deviceName, ServiceType serviceType) {
+        System.out.println("Updated device: " + deviceId + "(" + deviceName + ") of type " + serviceType.toString());
+        System.out.flush();
+    }
+
+    @Override
+    public void onDeviceRemoved(String deviceId) {
+        System.out.println("Removed device: " + deviceId);
+        System.out.flush();
     }
 
     @Override
