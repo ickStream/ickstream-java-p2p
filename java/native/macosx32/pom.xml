@@ -28,11 +28,46 @@
     <build>
         <plugins>
             <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <tasks>
+                                <copy file="../../../ickp2p/jansson/src/jansson_config.h.xcode"
+                                    tofile="../../../ickp2p/jansson/src/jansson_config.h" />
+                            </tasks>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <source>1.6</source>
                     <target>1.6</target>
                 </configuration>
+            </plugin>
+
+            <plugin>
+	        <groupId>org.codehaus.mojo</groupId>
+	        <artifactId>exec-maven-plugin</artifactId>
+	        <version>1.1</version>
+	        <executions>
+		    <execution>
+			<id>generate-miniupnpcstrings</id>
+			<phase>generate-sources</phase>
+			<goals><goal>exec</goal></goals>
+			<configuration>
+                                <workingDirectory>../../../ickp2p/miniupnp/miniupnpc</workingDirectory>
+				<executable>../../../ickp2p/miniupnp/miniupnpc/updateminiupnpcstrings.sh</executable>
+			</configuration>
+		    </execution>
+                </executions>
             </plugin>
 
             <plugin>
@@ -50,14 +85,14 @@
                     <linkerExecutable>gcc</linkerExecutable>
                     <sources>
                         <source>
-                            <directory>../src/main/native/minissdpd</directory>
+                            <directory>../../../ickp2p/miniupnp/minissdpd</directory>
                             <fileNames>
                                 <fileName>upnputils.c</fileName>
                                 <fileName>openssdpsocket.c</fileName>
                             </fileNames>
                         </source>
                         <source>
-                            <directory>../src/main/native/miniupnp</directory>
+                            <directory>../../../ickp2p/miniupnp/miniupnpc</directory>
                             <fileNames>
                                 <fileName>connecthostport.c</fileName>
                                 <fileName>miniwget.c</fileName>
@@ -66,7 +101,7 @@
                             </fileNames>
                         </source>
                         <source>
-                            <directory>../src/main/native/libwebsockets/lib</directory>
+                            <directory>../../../ickp2p/libwebsockets/lib</directory>
                             <fileNames>
                                 <fileName>libwebsockets.c</fileName>
                                 <fileName>sha-1.c</fileName>
@@ -81,14 +116,34 @@
                             </fileNames>
                         </source>
                         <source>
-                            <directory>../src/main/native</directory>
+                            <directory>../../../ickp2p/ickP2P/C/P2P</directory>
                             <fileNames>
                                 <fileName>ickDiscovery.c</fileName>
-                                <fileName>ickDiscoveryJNI.c</fileName>
                                 <fileName>ickDiscoveryRegistry.c</fileName>
                                 <fileName>ickP2PComm.c</fileName>
                             </fileNames>
                         </source>
+                        <source>
+                            <directory>../src/main/native</directory>
+                            <fileNames>
+                                <fileName>ickDiscoveryJNI.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../../../ickp2p/jansson/src</directory>
+                            <fileNames>
+                                <fileName>value.c</fileName>
+                                <fileName>memory.c</fileName>
+                                <fileName>dump.c</fileName>
+                                <fileName>hashtable.c</fileName>
+                                <fileName>strbuffer.c</fileName>
+                                <fileName>utf.c</fileName>
+                                <fileName>pack_unpack.c</fileName>
+                                <fileName>error.c</fileName>
+                                <fileName>strconv.c</fileName>
+                            </fileNames>
+                        </source>
+
                     </sources>
 
                     <compilerStartOptions>
