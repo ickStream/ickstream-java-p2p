@@ -147,6 +147,23 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_removeService(JNIEnv
     ickDiscoveryRemoveService(type);
 }
 
+int Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDevicePort(JNIEnv * env, jobject this, jstring deviceIdJava)
+{
+    const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    int port = ickDevicePort(szDeviceId);
+    (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    return port;
+}
+
+jstring Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDeviceAddress(JNIEnv * env, jobject this, jstring deviceIdJava)
+{
+    const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    const char * szURL = ickDeviceURL(szDeviceId);
+    jstring url = (*env)->NewStringUTF(env, szURL);
+    (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    return url;
+}
+
 jstring Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDeviceName(JNIEnv * env, jobject this, jstring deviceIdJava)
 {
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);

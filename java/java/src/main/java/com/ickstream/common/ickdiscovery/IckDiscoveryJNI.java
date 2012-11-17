@@ -9,7 +9,6 @@ package com.ickstream.common.ickdiscovery;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.*;
 
 public class IckDiscoveryJNI implements IckDiscovery {
@@ -23,6 +22,10 @@ public class IckDiscoveryJNI implements IckDiscovery {
     public native void addService(int service);
 
     public native void removeService(int service);
+
+    public native int getDevicePort(String deviceId);
+
+    public native String getDeviceAddress(String deviceId);
 
     @Override
     public native String getDeviceName(String deviceId);
@@ -51,19 +54,19 @@ public class IckDiscoveryJNI implements IckDiscovery {
     }
 
     public IckDiscoveryJNI(String libraryName) {
-        final String postfix = System.getProperty("os.arch").contains("64")?"64":"32";
+        final String postfix = System.getProperty("os.arch").contains("64") ? "64" : "32";
         try {
             if (libraryName == null) {
-                libraryName = "ickDiscoveryJNI"+postfix;
+                libraryName = "ickDiscoveryJNI" + postfix;
             }
             System.loadLibrary(libraryName);
         } catch (UnsatisfiedLinkError e) {
             String classPath = System.getProperty("java.class.path", "");
             List<String> classPathElements = new ArrayList<String>(Arrays.asList(classPath.split(":")));
             Boolean loaded = false;
-            if (classPath.matches(".*/libickDiscoveryJNI"+postfix+".*")) {
+            if (classPath.matches(".*/libickDiscoveryJNI" + postfix + ".*")) {
                 for (String classPathElement : classPathElements) {
-                    if (classPathElement.matches(".*/libickDiscoveryJNI"+postfix+".*")) {
+                    if (classPathElement.matches(".*/libickDiscoveryJNI" + postfix + ".*")) {
                         System.load(classPathElement);
                         loaded = true;
                         break;
@@ -75,7 +78,7 @@ public class IckDiscoveryJNI implements IckDiscovery {
                     File files[] = new File(path).getParentFile().listFiles(new FileFilter() {
                         @Override
                         public boolean accept(File file) {
-                            return file.getName().matches("libickDiscoveryJNI"+postfix+".*");
+                            return file.getName().matches("libickDiscoveryJNI" + postfix + ".*");
                         }
                     });
                     if (files.length > 0) {
