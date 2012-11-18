@@ -8,6 +8,7 @@ public class ServiceType {
     public static final ServiceType PLAYER = new ServiceType(1,"PLAYER");
     public static final ServiceType CONTROLLER = new ServiceType(2,"CONTROLLER");
     public static final ServiceType SERVICE = new ServiceType(4,"SERVICE");
+    public static final ServiceType DEBUG = new ServiceType(5,"DEBUG");
 
     private static final List<ServiceType> availableTypes = Arrays.asList(
             PLAYER, CONTROLLER, SERVICE
