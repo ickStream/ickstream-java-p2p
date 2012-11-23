@@ -28,6 +28,15 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <configuration>
+                    <scmDirectory>${basedir}/../../../ickp2p</scmDirectory>
+                    <buildNumberPropertyName>ickp2pVersion</buildNumberPropertyName>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
@@ -35,7 +44,7 @@
                         <configuration>
                             <tasks>
                                 <copy file="../../../ickp2p/jansson/src/jansson_config.h.xcode"
-                                    tofile="../../../ickp2p/jansson/src/jansson_config.h" />
+                                      tofile="../../../ickp2p/jansson/src/jansson_config.h"/>
                             </tasks>
                         </configuration>
                         <goals>
@@ -54,19 +63,21 @@
             </plugin>
 
             <plugin>
-	        <groupId>org.codehaus.mojo</groupId>
-	        <artifactId>exec-maven-plugin</artifactId>
-	        <version>1.1</version>
-	        <executions>
-		    <execution>
-			<id>generate-miniupnpcstrings</id>
-			<phase>generate-sources</phase>
-			<goals><goal>exec</goal></goals>
-			<configuration>
-                                <workingDirectory>../../../ickp2p/miniupnp/miniupnpc</workingDirectory>
-				<executable>../../../ickp2p/miniupnp/miniupnpc/updateminiupnpcstrings.sh</executable>
-			</configuration>
-		    </execution>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.1</version>
+                <executions>
+                    <execution>
+                        <id>generate-miniupnpcstrings</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>../../../ickp2p/miniupnp/miniupnpc</workingDirectory>
+                            <executable>../../../ickp2p/miniupnp/miniupnpc/updateminiupnpcstrings.sh</executable>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 
@@ -147,7 +158,9 @@
                     </sources>
 
                     <compilerStartOptions>
-                        <compilerStartOption>-m32 -DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
+                        <compilerStartOption>-m32 -DLWS_NO_FORK ${ickstream.compiler.flags}
+                            -DGIT_VERSION=${ickp2pVersion}
+                        </compilerStartOption>
                     </compilerStartOptions>
                     <linkerStartOptions>
                         <linkerStartOption>-m32 -dynamiclib -lz</linkerStartOption>

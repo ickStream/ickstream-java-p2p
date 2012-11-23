@@ -28,6 +28,14 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <configuration>
+                    <scmDirectory>${basedir}/../../../ickp2p</scmDirectory>
+                    <buildNumberPropertyName>ickp2pVersion</buildNumberPropertyName>
+                </configuration>
+            </plugin>
+            <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
@@ -145,7 +153,7 @@
                     </sources>
 
                     <compilerStartOptions>
-                        <compilerStartOption>-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags}</compilerStartOption>
+                        <compilerStartOption>-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion}</compilerStartOption>
                     </compilerStartOptions>
                     <linkerStartOptions>
                         <linkerStartOption>-m64 -shared -lz</linkerStartOption>
