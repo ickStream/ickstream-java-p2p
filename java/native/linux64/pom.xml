@@ -1,3 +1,8 @@
+<!--
+  ~ Copyright (C) 2013 ickStream GmbH
+  ~ All rights reserved
+  -->
+
 <project>
     <modelVersion>4.0.0</modelVersion>
 
@@ -43,7 +48,7 @@
                         <configuration>
                             <tasks>
                                 <copy file="../../../ickp2p/jansson/src/jansson_config.h.xcode"
-                                    tofile="../../../ickp2p/jansson/src/jansson_config.h" />
+                                      tofile="../../../ickp2p/jansson/src/jansson_config.h"/>
                             </tasks>
                         </configuration>
                         <goals>
@@ -69,10 +74,12 @@
                     <execution>
                         <id>generate-miniupnpcstrings</id>
                         <phase>generate-sources</phase>
-                        <goals><goal>exec</goal></goals>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
                         <configuration>
-                                <workingDirectory>../../../ickp2p/miniupnp/miniupnpc</workingDirectory>
-                                <executable>../../../ickp2p/miniupnp/miniupnpc/updateminiupnpcstrings.sh</executable>
+                            <workingDirectory>../../../ickp2p/miniupnp/miniupnpc</workingDirectory>
+                            <executable>../../../ickp2p/miniupnp/miniupnpc/updateminiupnpcstrings.sh</executable>
                         </configuration>
                     </execution>
                 </executions>
@@ -153,7 +160,9 @@
                     </sources>
 
                     <compilerStartOptions>
-                        <compilerStartOption>-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags} -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE</compilerStartOption>
+                        <compilerStartOption>-m64 -fPIC -DLWS_NO_FORK ${ickstream.compiler.flags}
+                            -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE
+                        </compilerStartOption>
                     </compilerStartOptions>
                     <linkerStartOptions>
                         <linkerStartOption>-m64 -shared -lz</linkerStartOption>

@@ -1,3 +1,8 @@
+<!--
+  ~ Copyright (C) 2013 ickStream GmbH
+  ~ All rights reserved
+  -->
+
 <project>
 
     <modelVersion>4.0.0</modelVersion>
@@ -27,7 +32,7 @@
             </activation>
             <modules>
                 <module>linux32</module>
-		<module>linux64</module>
+                <module>linux64</module>
             </modules>
         </profile>
 
@@ -40,7 +45,7 @@
             </activation>
             <modules>
                 <module>macosx32</module>
-		<module>macosx64</module>
+                <module>macosx64</module>
             </modules>
         </profile>
 

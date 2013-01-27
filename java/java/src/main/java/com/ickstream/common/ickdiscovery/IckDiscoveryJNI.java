@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2012 Erland Isaksson (erland@isaksson.info)
- * All rights reserved.
+ * Copyright (C) 2013 ickStream GmbH
+ * All rights reserved
  */
 
 package com.ickstream.common.ickdiscovery;

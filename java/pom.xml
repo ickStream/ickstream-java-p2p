@@ -5,6 +5,10 @@
     <artifactId>ickDiscoveryParent</artifactId>
     <version>1.0-SNAPSHOT</version>
     <name>ickDiscovery Java Wrapper - Parent</name>
+    <organization>
+        <name>ickStream GmbH</name>
+        <url>http://www.ickstream.com</url>
+    </organization>
 
     <packaging>pom</packaging>
     <properties>
