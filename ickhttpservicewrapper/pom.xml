@@ -1,0 +1,47 @@
+<!--
+  ~ Copyright (C) 2013 ickStream GmbH
+  ~ All rights reserved
+  -->
+
+<project>
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.ickstream.common.ickservice</groupId>
+    <artifactId>ickHttpServiceWrapperParent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <organization>
+        <name>ickStream GmbH</name>
+        <url>http://www.ickstream.com</url>
+    </organization>
+
+    <packaging>pom</packaging>
+    <modules>
+        <module>main</module>
+    </modules>
+
+    <profiles>
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                    <name>!mac os x</name>
+                </os>
+            </activation>
+            <modules>
+                <module>dist-linux</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>macosx</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                </os>
+            </activation>
+            <modules>
+                <module>dist-macosx</module>
+            </modules>
+        </profile>
+    </profiles>
+</project>
