@@ -1,0 +1,195 @@
+<!--
+  ~ Copyright (C) 2013 ickStream GmbH
+  ~ All rights reserved
+  -->
+
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.ickstream.common.ickdiscovery.java</groupId>
+        <artifactId>ickDiscoveryNative</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.ickstream.common.ickdiscovery.java</groupId>
+    <artifactId>libickDiscoveryJNI32</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <name>ickDiscovery Java Wrapper - Native Linux 32 bit</name>
+    <url>http://maven.apache.org</url>
+
+    <packaging>so</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ickstream.common.ickdiscovery.java</groupId>
+            <artifactId>ickDiscoveryJava</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <type>jar</type>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <configuration>
+                    <scmDirectory>${basedir}/../../../ickp2p</scmDirectory>
+                    <buildNumberPropertyName>ickp2pVersion</buildNumberPropertyName>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <tasks>
+                                <copy file="../../../ickp2p/jansson/src/jansson_config.h.xcode"
+                                      tofile="../../../ickp2p/jansson/src/jansson_config.h"/>
+                            </tasks>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.1</version>
+                <executions>
+                    <execution>
+                        <id>generate-miniupnpcstrings</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>../../../ickp2p/miniupnp/miniupnpc</workingDirectory>
+                            <executable>../../../ickp2p/miniupnp/miniupnpc/updateminiupnpcstrings.sh</executable>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <!--  trigger javah -->
+                    <javahOS>linux</javahOS>
+
+                    <compilerProvider>generic-classic</compilerProvider>
+                    <compilerExecutable>gcc</compilerExecutable>
+                    <linkerExecutable>gcc</linkerExecutable>
+                    <sources>
+                        <source>
+                            <directory>../../../ickp2p/miniupnp/minissdpd</directory>
+                            <fileNames>
+                                <fileName>upnputils.c</fileName>
+                                <fileName>openssdpsocket.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../../../ickp2p/miniupnp/miniupnpc</directory>
+                            <fileNames>
+                                <fileName>connecthostport.c</fileName>
+                                <fileName>miniwget.c</fileName>
+                                <fileName>minixml.c</fileName>
+                                <fileName>receivedata.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../../../ickp2p/libwebsockets/lib</directory>
+                            <fileNames>
+                                <fileName>libwebsockets.c</fileName>
+                                <fileName>sha-1.c</fileName>
+                                <fileName>parsers.c</fileName>
+                                <fileName>md5.c</fileName>
+                                <fileName>handshake.c</fileName>
+                                <fileName>extension.c</fileName>
+                                <fileName>base64-decode.c</fileName>
+                                <fileName>client-handshake.c</fileName>
+                                <fileName>extension-deflate-stream.c</fileName>
+                                <fileName>extension-x-google-mux.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../../../ickp2p/ickP2P/C/P2P</directory>
+                            <fileNames>
+                                <fileName>ickDiscovery.c</fileName>
+                                <fileName>ickDiscoveryRegistry.c</fileName>
+                                <fileName>ickP2PComm.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../src/main/native</directory>
+                            <fileNames>
+                                <fileName>ickDiscoveryJNI.c</fileName>
+                            </fileNames>
+                        </source>
+                        <source>
+                            <directory>../../../ickp2p/jansson/src</directory>
+                            <fileNames>
+                                <fileName>value.c</fileName>
+                                <fileName>memory.c</fileName>
+                                <fileName>dump.c</fileName>
+                                <fileName>hashtable.c</fileName>
+                                <fileName>strbuffer.c</fileName>
+                                <fileName>utf.c</fileName>
+                                <fileName>pack_unpack.c</fileName>
+                                <fileName>error.c</fileName>
+                                <fileName>strconv.c</fileName>
+                            </fileNames>
+                        </source>
+
+                    </sources>
+
+                    <compilerStartOptions>
+                        <compilerStartOption>-m32 -DLWS_NO_FORK ${ickstream.compiler.flags}
+                            -DGIT_VERSION=${ickp2pVersion} -D_GNU_SOURCE
+                        </compilerStartOption>
+                    </compilerStartOptions>
+                    <linkerStartOptions>
+                        <linkerStartOption>-m32 -shared -lz</linkerStartOption>
+                    </linkerStartOptions>
+
+                </configuration>
+
+                <executions>
+                    <execution>
+                        <id>javah</id>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <javahProvider>default</javahProvider>
+                            <javahOutputDirectory>${project.build.directory}/custom-javah</javahOutputDirectory>
+                            <workingDirectory>${basedir}</workingDirectory>
+                            <javahOutputFileName>ickDiscoveryJNI.h</javahOutputFileName>
+                            <javahClassNames>
+                                <javahClassName>com.ickstream.common.ickdiscovery.IckDiscoveryJNI</javahClassName>
+                            </javahClassNames>
+                        </configuration>
+                        <goals>
+                            <goal>javah</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+            </plugin>
+        </plugins>
+    </build>
+</project>
