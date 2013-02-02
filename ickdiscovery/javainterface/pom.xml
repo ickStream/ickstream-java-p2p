@@ -6,6 +6,25 @@
     <name>ickDiscovery Java Interface</name>
     <version>1.0-SNAPSHOT</version>
 
+    <scm>
+        <connection>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</connection>
+        <url>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</url>
+        <developerConnection>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</developerConnection>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>deployment</id>
+            <name>Internal Releases</name>
+            <url>http://ickstream.isaksson.info/nexus/content/repositories/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>deployment</id>
+            <name>Internal Releases</name>
+            <url>http://ickstream.isaksson.info/nexus/content/repositories/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.testng</groupId>

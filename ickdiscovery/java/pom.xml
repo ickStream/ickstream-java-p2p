@@ -16,10 +16,23 @@
     </properties>
 
     <scm>
-        <connection>scm:git:git@bitbucket.org:erland/ickstream-ickdiscovery.git</connection>
-        <url>scm:git:git@bitbucket.org:erland/ickstream-ickdiscovery.git</url>
-        <developerConnection>scm:git:git@bitbucket.org:erland/ickstream-ickdiscovery.git</developerConnection>
+        <connection>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</connection>
+        <url>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</url>
+        <developerConnection>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</developerConnection>
     </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>deployment</id>
+            <name>Internal Releases</name>
+            <url>http://ickstream.isaksson.info/nexus/content/repositories/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>deployment</id>
+            <name>Internal Releases</name>
+            <url>http://ickstream.isaksson.info/nexus/content/repositories/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <modules>
         <module>java</module>
