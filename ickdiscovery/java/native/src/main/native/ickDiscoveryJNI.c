@@ -18,8 +18,15 @@ JavaVM* gJavaVM = NULL;
 jobject gService = NULL;
 char * myDeviceId = NULL;
 
-void onMessage(const char * szDeviceId, const void * message, size_t messageLength, enum ickMessage_communicationstate state)
+void onMessage(const char * szSourceDeviceId, const char * message, size_t messageLength, enum ickMessage_communicationstate state, ickDeviceServicetype_t service_type, const char * szTargetDeviceId)
 {
+#ifdef DEBUG
+#ifdef __ANDROID_API__
+    __android_log_print(ANDROID_LOG_DEBUG, DEBUG_TAG, "ickDevice_message_callback_t(%s,%s,%d,%d,%d,%p=%s)\n",szSourceDeviceId,message,messageLength,state,service_type,szTargetDeviceId,szTargetDeviceId);
+#else
+    printf("ickDevice_message_callback_t(%s,%s,%d,%d,%d,%p=%s)\n",szSourceDeviceId,message,messageLength,state,service_type,szTargetDeviceId,szTargetDeviceId);
+#endif
+#endif
     int attached = 0;
     JNIEnv *env;
     if ((*gJavaVM)->GetEnv(gJavaVM, (void**) &env, JNI_VERSION_1_4) != JNI_OK) {
@@ -35,12 +42,14 @@ void onMessage(const char * szDeviceId, const void * message, size_t messageLeng
     }
     if(gService != NULL) {
         jclass cls = (*env)->GetObjectClass(env, gService);
-        jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onMessage", "(Ljava/lang/String;[B)V");
+        jmethodID onMessageID = (*env)->GetMethodID(env, cls, "onNativeMessage", "(Ljava/lang/String;Ljava/lang/String;I[B)V");
         if(onMessageID != NULL) {
             jbyteArray messageJava = (*env)->NewByteArray(env, messageLength);
             (*env)->SetByteArrayRegion(env, messageJava, 0, messageLength, message);
-            jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
-            (*env)->CallVoidMethod(env, gService, onMessageID, deviceJava, messageJava);
+            jstring sourceDeviceJava = (*env)->NewStringUTF(env, szSourceDeviceId);
+            jstring targetDeviceJava = (*env)->NewStringUTF(env, szTargetDeviceId);
+            jint javaServiceType = service_type;
+            (*env)->CallVoidMethod(env, gService, onMessageID, sourceDeviceJava, targetDeviceJava, javaServiceType, messageJava);
         }
     }
     if(attached) {
@@ -94,6 +103,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
         return -1;
     }
 #ifdef __ANDROID_API__
+    ickDiscoverySetLogFacility(&log);
 #ifdef DEBUG
     freopen("/sdcard/ickStreamPlayer.log", "w", stderr);
 #endif
@@ -102,7 +112,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_4;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_initDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeInitDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
 {
     gService = (*env)->NewGlobalRef(env, service);
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
@@ -173,11 +183,16 @@ jstring Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDeviceName(JNI
     return name;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv * env, jobject this, jstring deviceIdJava, jbyteArray messageJava)
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendMessage(JNIEnv * env, jobject this, jstring sourceDeviceIdJava, jstring targetDeviceIdJava, jbyteArray messageJava)
 {
-    const char * szDeviceId = NULL;
-    if (deviceIdJava != NULL) {
-        szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
+    const char * szTargetDeviceId = NULL;
+    if (targetDeviceIdJava != NULL) {
+        szTargetDeviceId = (*env)->GetStringUTFChars(env, targetDeviceIdJava, NULL);
+    }
+
+    const char * szSourceDeviceId = NULL;
+    if (sourceDeviceIdJava != NULL) {
+        szSourceDeviceId = (*env)->GetStringUTFChars(env, sourceDeviceIdJava, NULL);
     }
 
     jbyte* byteMessage = (*env)->GetByteArrayElements(env, messageJava, NULL);
@@ -185,7 +200,14 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv *
 
     int i=0;
     while(i<10) {
-        if(ickDeviceSendMsg(szDeviceId, byteMessage, messageLength) == ICKMESSAGE_SUCCESS) {
+#ifdef DEBUG
+#ifdef __ANDROID_API__
+        __android_log_print(ANDROID_LOG_DEBUG, DEBUG_TAG, "ickDeviceSendMsg(%s,%s,%d)\n",szTargetDeviceId,byteMessage,messageLength);
+#else
+        printf("ickDeviceSendMsg(%s,%s,%d)\n",szTargetDeviceId,byteMessage,messageLength);
+#endif
+#endif
+        if(ickDeviceSendMsg(szTargetDeviceId, byteMessage, messageLength) == ICKMESSAGE_SUCCESS) {
             break;
         }
         sleep(1);
@@ -201,7 +223,88 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_sendMessage(JNIEnv *
     }
 
     (*env)->ReleaseByteArrayElements(env, messageJava, byteMessage, JNI_ABORT);
-    if (szDeviceId != NULL) {
-        (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
+    if (szTargetDeviceId != NULL) {
+        (*env)->ReleaseStringUTFChars(env, targetDeviceIdJava, szTargetDeviceId);
+    }
+    if (szSourceDeviceId != NULL) {
+        (*env)->ReleaseStringUTFChars(env, sourceDeviceIdJava, szSourceDeviceId);
     }
 }
+
+void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendTargetedMessage(JNIEnv * env, jobject this, jstring sourceDeviceIdJava, jstring targetDeviceIdJava, jint targetServiceType, jbyteArray messageJava)
+{
+    const char * szTargetDeviceId = NULL;
+    if (targetDeviceIdJava != NULL) {
+        szTargetDeviceId = (*env)->GetStringUTFChars(env, targetDeviceIdJava, NULL);
+    }
+
+    const char * szSourceDeviceId = NULL;
+    if (sourceDeviceIdJava != NULL) {
+        szSourceDeviceId = (*env)->GetStringUTFChars(env, sourceDeviceIdJava, NULL);
+    }
+
+    jbyte* byteMessage = (*env)->GetByteArrayElements(env, messageJava, NULL);
+    jsize messageLength = (*env)->GetArrayLength(env, messageJava);
+
+    int i=0;
+    while(i<10) {
+#ifdef DEBUG
+#ifdef __ANDROID_API__
+        __android_log_print(ANDROID_LOG_DEBUG, DEBUG_TAG, "ickDeviceSendTargetedMsg(%s,%s,%d,%d,%s)\n",szTargetDeviceId,byteMessage,messageLength,targetServiceType, szSourceDeviceId);
+#else
+        printf("ickDeviceSendTargetedMsg(%s,%s,%d,%d,%s)\n",szTargetDeviceId,byteMessage,messageLength,targetServiceType, szSourceDeviceId);
+#endif
+#endif
+        if(ickDeviceSendTargetedMsg(szTargetDeviceId, byteMessage, messageLength, targetServiceType, szSourceDeviceId) == ICKMESSAGE_SUCCESS) {
+            break;
+        }
+        sleep(1);
+        i++;
+    }
+    if(i==10) {
+#ifdef __ANDROID_API__
+        __android_log_print(ANDROID_LOG_ERROR, DEBUG_TAG, "Failed to send message");
+#else
+        puts("Failed to send message");
+        fflush(stdout);
+#endif
+    }
+
+    (*env)->ReleaseByteArrayElements(env, messageJava, byteMessage, JNI_ABORT);
+    if (szTargetDeviceId != NULL) {
+        (*env)->ReleaseStringUTFChars(env, targetDeviceIdJava, szTargetDeviceId);
+    }
+    if (szSourceDeviceId != NULL) {
+        (*env)->ReleaseStringUTFChars(env, sourceDeviceIdJava, szSourceDeviceId);
+    }
+}
+
+#ifdef __ANDROID_API__
+void log( const char *file, int line, int prio, const char * format, ... )
+{
+    va_list argptr;
+    va_start(argptr,format);
+    switch(prio) {
+        case LOG_EMERG:
+        case LOG_ALERT:
+            __android_log_vprint(ANDROID_LOG_FATAL,DEBUG_TAG,format,argptr);
+            break;
+        case LOG_CRIT:
+        case LOG_ERR:
+            __android_log_vprint(ANDROID_LOG_ERROR,DEBUG_TAG,format,argptr);
+            break;
+        case LOG_WARNING:
+            __android_log_vprint(ANDROID_LOG_WARN,DEBUG_TAG,format,argptr);
+            break;
+        case LOG_NOTICE:
+        case LOG_INFO:
+            __android_log_vprint(ANDROID_LOG_INFO,DEBUG_TAG,format,argptr);
+            break;
+        case LOG_DEBUG:
+        default:
+            __android_log_vprint(ANDROID_LOG_DEBUG,DEBUG_TAG,format,argptr);
+            break;
+    }
+    va_end(argptr);
+}
+#endif

@@ -6,6 +6,9 @@
 package com.ickstream.common.ickdiscovery;
 
 public interface MessageSender {
-    void sendMessage(String deviceId, byte[] message);
+    void sendMessage(String targetDeviceId, ServiceType targetServiceType, byte[] message);
+
+    void sendMessage(String targetDeviceId, byte[] message);
+
     void sendMessage(byte[] message);
 }

@@ -136,6 +136,7 @@
                                 <fileName>ickDiscovery.c</fileName>
                                 <fileName>ickDiscoveryRegistry.c</fileName>
                                 <fileName>ickP2PComm.c</fileName>
+                                <fileName>logutils.c</fileName>
                             </fileNames>
                         </source>
                         <source>

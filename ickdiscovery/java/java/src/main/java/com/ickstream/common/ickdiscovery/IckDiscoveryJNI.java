@@ -12,9 +12,9 @@ import java.io.IOException;
 import java.util.*;
 
 public class IckDiscoveryJNI implements IckDiscovery {
+    private String deviceId;
 
-    @Override
-    public native void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
+    public native void nativeInitDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
 
     @Override
     public native void endDiscovery();
@@ -30,14 +30,34 @@ public class IckDiscoveryJNI implements IckDiscovery {
     @Override
     public native String getDeviceName(String deviceId);
 
+    public native void nativeSendMessage(String sourceDeviceId, String targetDeviceId, byte[] message);
+
+    public native void nativeSendTargetedMessage(String sourceDeviceId, String targetDeviceId, int serviceType, byte[] message);
+
     @Override
-    public native void sendMessage(String deviceId, byte[] message);
+    public void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder) {
+        this.deviceId = deviceId;
+        nativeInitDiscovery(deviceId, networkInterface, deviceName, dataFolder);
+    }
+
+    @Override
+    public void sendMessage(String targetDeviceId, byte[] message) {
+        nativeSendMessage(deviceId, targetDeviceId, message);
+    }
 
     @Override
     public void sendMessage(byte[] message) {
-        sendMessage(null, message);
+        nativeSendMessage(deviceId, null, message);
     }
 
+    @Override
+    public void sendMessage(String targetDeviceId, ServiceType serviceType, byte[] message) {
+        if (serviceType != null) {
+            nativeSendTargetedMessage(deviceId, targetDeviceId, serviceType.value(), message);
+        } else {
+            nativeSendMessage(deviceId, targetDeviceId, message);
+        }
+    }
 
     @Override
     public void addService(ServiceType serviceType) {
@@ -97,9 +117,9 @@ public class IckDiscoveryJNI implements IckDiscovery {
         }
     }
 
-    private void onMessage(String deviceId, byte[] message) {
+    private void onNativeMessage(String sourceDeviceId, String targetDeviceId, int targetServiceType, byte[] message) {
         for (MessageListener listener : messageListeners) {
-            listener.onMessage(deviceId, message);
+            listener.onMessage(sourceDeviceId, targetDeviceId, ServiceType.valueOf(targetServiceType), message);
         }
     }
 
