@@ -24,6 +24,7 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     private IckDiscovery ickDiscovery = new IckDiscoveryJNI();
     HttpClient httpClient;
     Boolean debug = Boolean.FALSE;
+    private String serviceId;
 
     private IckHttpServiceWrapper(String serviceId, final String name, URL callbackUrl) {
         String debugString = System.getProperty("com.ickstream.common.ickservice.debug");
@@ -67,6 +68,7 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
         }
 
         this.callbackUrl = callbackUrl;
+        this.serviceId = serviceId;
         String ipAddress = getCurrentNetworkAddress();
         httpClient = new DefaultHttpClient();
         ickDiscovery.addMessageListener(this);
@@ -116,7 +118,7 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     }
 
     @Override
-    public void onMessage(String deviceId, byte[] byteMessage) {
+    public void onMessage(String sourceDeviceId, String targetDeviceId, ServiceType targetServiceType, byte[] byteMessage) {
         String message;
         try {
             message = new String(byteMessage, "UTF-8");
@@ -127,7 +129,7 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
             return;
         }
         if (debug) {
-            System.out.println("From " + deviceId + ": " + message);
+            System.out.println("From " + sourceDeviceId + ": " + message);
             System.out.flush();
         }
         HttpPost httpRequest = new HttpPost(callbackUrl.toString());
@@ -138,22 +140,22 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
                 String responseString = EntityUtils.toString(httpResponse.getEntity(), "utf-8");
                 if (responseString != null && responseString.length() > 0) {
                     if (debug) {
-                        System.out.println("To " + deviceId + ": " + responseString);
+                        System.out.println("To " + sourceDeviceId + ": " + responseString);
                         System.out.flush();
                     }
-                    ickDiscovery.sendMessage(deviceId, responseString.getBytes("UTF-8"));
+                    ickDiscovery.sendMessage(sourceDeviceId, responseString.getBytes("UTF-8"));
                 }
             }
         } catch (ClientProtocolException e) {
-            System.err.println("Error handling message from " + deviceId + ": " + message);
+            System.err.println("Error handling message from " + sourceDeviceId + ": " + message);
             e.printStackTrace();
             System.err.flush();
         } catch (UnsupportedEncodingException e) {
-            System.err.println("Error handling message from " + deviceId + ": " + message);
+            System.err.println("Error handling message from " + sourceDeviceId + ": " + message);
             e.printStackTrace();
             System.err.flush();
         } catch (IOException e) {
-            System.err.println("Error handling message from " + deviceId + ": " + message);
+            System.err.println("Error handling message from " + sourceDeviceId + ": " + message);
             e.printStackTrace();
             System.err.flush();
         }
