@@ -14,14 +14,14 @@ import java.util.*;
 public class IckDiscoveryJNI implements IckDiscovery {
     private String deviceId;
 
-    public native void nativeInitDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
+    public native int nativeInitDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
 
     @Override
     public native void endDiscovery();
 
-    public native void addService(int service);
+    public native int addService(int service);
 
-    public native void removeService(int service);
+    public native int removeService(int service);
 
     public native int getDevicePort(String deviceId);
 
@@ -30,43 +30,46 @@ public class IckDiscoveryJNI implements IckDiscovery {
     @Override
     public native String getDeviceName(String deviceId);
 
-    public native void nativeSendMessage(String sourceDeviceId, String targetDeviceId, byte[] message);
+    public native boolean nativeSendMessage(String sourceDeviceId, String targetDeviceId, byte[] message);
 
-    public native void nativeSendTargetedMessage(String sourceDeviceId, String targetDeviceId, int serviceType, byte[] message);
+    public native boolean nativeSendTargetedMessage(String sourceDeviceId, String targetDeviceId, int serviceType, byte[] message);
 
     @Override
-    public void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder) {
+    public DiscoveryResult initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder) {
         this.deviceId = deviceId;
-        nativeInitDiscovery(deviceId, networkInterface, deviceName, dataFolder);
+        int result = nativeInitDiscovery(deviceId, networkInterface, deviceName, dataFolder);
+        return DiscoveryResult.valueOf(result);
     }
 
     @Override
-    public void sendMessage(String targetDeviceId, byte[] message) {
-        nativeSendMessage(deviceId, targetDeviceId, message);
+    public Boolean sendMessage(String targetDeviceId, byte[] message) {
+        return nativeSendMessage(deviceId, targetDeviceId, message);
     }
 
     @Override
-    public void sendMessage(byte[] message) {
-        nativeSendMessage(deviceId, null, message);
+    public Boolean sendMessage(byte[] message) {
+        return nativeSendMessage(deviceId, null, message);
     }
 
     @Override
-    public void sendMessage(String targetDeviceId, ServiceType serviceType, byte[] message) {
+    public Boolean sendMessage(String targetDeviceId, ServiceType serviceType, byte[] message) {
         if (serviceType != null) {
-            nativeSendTargetedMessage(deviceId, targetDeviceId, serviceType.value(), message);
+            return nativeSendTargetedMessage(deviceId, targetDeviceId, serviceType.value(), message);
         } else {
-            nativeSendMessage(deviceId, targetDeviceId, message);
+            return nativeSendMessage(deviceId, targetDeviceId, message);
         }
     }
 
     @Override
-    public void addService(ServiceType serviceType) {
-        addService(serviceType.value());
+    public DiscoveryResult addService(ServiceType serviceType) {
+        int result = addService(serviceType.value());
+        return DiscoveryResult.valueOf(result);
     }
 
     @Override
-    public void removeService(ServiceType serviceType) {
-        addService(serviceType.value());
+    public DiscoveryResult removeService(ServiceType serviceType) {
+        int result = removeService(serviceType.value());
+        return DiscoveryResult.valueOf(result);
     }
 
     public IckDiscoveryJNI() {

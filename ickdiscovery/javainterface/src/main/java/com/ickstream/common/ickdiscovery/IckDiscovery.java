@@ -6,13 +6,13 @@
 package com.ickstream.common.ickdiscovery;
 
 public interface IckDiscovery extends MessageSender {
-    void initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
+    DiscoveryResult initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
 
     void endDiscovery();
 
-    void addService(ServiceType serviceType);
+    DiscoveryResult addService(ServiceType serviceType);
 
-    void removeService(ServiceType serviceType);
+    DiscoveryResult removeService(ServiceType serviceType);
 
     String getDeviceName(String deviceId);
 

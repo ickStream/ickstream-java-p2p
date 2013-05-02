@@ -112,7 +112,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_4;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeInitDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
+jint Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeInitDiscovery(JNIEnv * env, jobject service, jstring deviceIdJava, jstring interfaceJava, jstring deviceNameJava, jstring dataFolderJava)
 {
     gService = (*env)->NewGlobalRef(env, service);
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
@@ -128,7 +128,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeInitDiscovery(
     myDeviceId = malloc(strlen(szDeviceId)+1);
     strcpy(myDeviceId,szDeviceId);
 
-    ickInitDiscovery(szDeviceId, szInterface,NULL);
+    ickDiscoveryResult_t result = ickInitDiscovery(szDeviceId, szInterface,NULL);
     ickDiscoverySetupConfigurationData(szDeviceName, NULL);
     (*env)->ReleaseStringUTFChars(env, deviceIdJava, szDeviceId);
     if(szDeviceName != NULL) {
@@ -138,6 +138,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeInitDiscovery(
     //	(*env)->ReleaseStringUTFChars(env, dataFolderJava, szDataFolder);
     //}
     (*env)->ReleaseStringUTFChars(env, interfaceJava, szInterface);
+    return result;
 }
 
 void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_endDiscovery(JNIEnv * env, jobject service)
@@ -147,14 +148,14 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_endDiscovery(JNIEnv 
     gService = NULL;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_addService(JNIEnv * env, jobject this, jint type)
+jint Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_addService(JNIEnv * env, jobject this, jint type)
 {
-    ickDiscoveryAddService(type);
+    return ickDiscoveryAddService(type);
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_removeService(JNIEnv * env, jobject this, jint type)
+jint Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_removeService(JNIEnv * env, jobject this, jint type)
 {
-    ickDiscoveryRemoveService(type);
+    return ickDiscoveryRemoveService(type);
 }
 
 int Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDevicePort(JNIEnv * env, jobject this, jstring deviceIdJava)
@@ -183,7 +184,7 @@ jstring Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_getDeviceName(JNI
     return name;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendMessage(JNIEnv * env, jobject this, jstring sourceDeviceIdJava, jstring targetDeviceIdJava, jbyteArray messageJava)
+jboolean Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendMessage(JNIEnv * env, jobject this, jstring sourceDeviceIdJava, jstring targetDeviceIdJava, jbyteArray messageJava)
 {
     const char * szTargetDeviceId = NULL;
     if (targetDeviceIdJava != NULL) {
@@ -198,6 +199,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendMessage(JN
     jbyte* byteMessage = (*env)->GetByteArrayElements(env, messageJava, NULL);
     jsize messageLength = (*env)->GetArrayLength(env, messageJava);
 
+    int result = JNI_FALSE;
     int i=0;
     while(i<10) {
 #ifdef DEBUG
@@ -208,6 +210,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendMessage(JN
 #endif
 #endif
         if(ickDeviceSendMsg(szTargetDeviceId, byteMessage, messageLength) == ICKMESSAGE_SUCCESS) {
+            result = JNI_TRUE;
             break;
         }
         sleep(1);
@@ -229,9 +232,10 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendMessage(JN
     if (szSourceDeviceId != NULL) {
         (*env)->ReleaseStringUTFChars(env, sourceDeviceIdJava, szSourceDeviceId);
     }
+    return result;
 }
 
-void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendTargetedMessage(JNIEnv * env, jobject this, jstring sourceDeviceIdJava, jstring targetDeviceIdJava, jint targetServiceType, jbyteArray messageJava)
+jboolean Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendTargetedMessage(JNIEnv * env, jobject this, jstring sourceDeviceIdJava, jstring targetDeviceIdJava, jint targetServiceType, jbyteArray messageJava)
 {
     const char * szTargetDeviceId = NULL;
     if (targetDeviceIdJava != NULL) {
@@ -246,6 +250,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendTargetedMe
     jbyte* byteMessage = (*env)->GetByteArrayElements(env, messageJava, NULL);
     jsize messageLength = (*env)->GetArrayLength(env, messageJava);
 
+    int result = JNI_FALSE;
     int i=0;
     while(i<10) {
 #ifdef DEBUG
@@ -256,6 +261,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendTargetedMe
 #endif
 #endif
         if(ickDeviceSendTargetedMsg(szTargetDeviceId, byteMessage, messageLength, targetServiceType, szSourceDeviceId) == ICKMESSAGE_SUCCESS) {
+            result = JNI_TRUE;
             break;
         }
         sleep(1);
@@ -277,6 +283,7 @@ void Java_com_ickstream_common_ickdiscovery_IckDiscoveryJNI_nativeSendTargetedMe
     if (szSourceDeviceId != NULL) {
         (*env)->ReleaseStringUTFChars(env, sourceDeviceIdJava, szSourceDeviceId);
     }
+    return result;
 }
 
 #ifdef __ANDROID_API__
