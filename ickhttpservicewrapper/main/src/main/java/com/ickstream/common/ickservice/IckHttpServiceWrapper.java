@@ -27,44 +27,48 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
     private String serviceId;
 
     private IckHttpServiceWrapper(String serviceId, final String name, URL callbackUrl) {
-        String debugString = System.getProperty("com.ickstream.common.ickservice.debug");
-        if (debugString != null && debugString.equalsIgnoreCase("true")) {
-            debug = Boolean.TRUE;
-        }
-        String customStdOut = System.getProperty("com.ickstream.common.ickservice.stdout");
-        String customStdErr = System.getProperty("com.ickstream.common.ickservice.stderr");
-        String isDaemon = System.getProperty("com.ickstream.common.ickservice.daemon");
-        if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
-            try {
-                System.out.println("Starting in daemon mode");
-                System.in.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+        try {
+            String debugString = System.getProperty("com.ickstream.common.ickservice.debug");
+            if (debugString != null && debugString.equalsIgnoreCase("true")) {
+                debug = Boolean.TRUE;
             }
-        }
-        if (customStdOut != null) {
-            try {
-                System.out.println("Redirecting stdout to: " + customStdOut);
-                System.setOut(new PrintStream(new FileOutputStream(customStdOut)));
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-        } else if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
-            System.out.close();
-        }
-        if (customStdErr != null) {
-            try {
-                System.err.println("Redirecting stderr to: " + customStdErr);
-                if (customStdOut != null && customStdErr.equals(customStdOut)) {
-                    System.setErr(System.out);
-                } else {
-                    System.setErr(new PrintStream(new FileOutputStream(customStdErr)));
+            String customStdOut = System.getProperty("com.ickstream.common.ickservice.stdout");
+            String customStdErr = System.getProperty("com.ickstream.common.ickservice.stderr");
+            String isDaemon = System.getProperty("com.ickstream.common.ickservice.daemon");
+            if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
+                try {
+                    System.out.println("Starting in daemon mode");
+                    System.in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
             }
-        } else if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
-            System.err.close();
+            if (customStdOut != null) {
+                try {
+                    System.out.println("Redirecting stdout to: " + customStdOut);
+                    System.setOut(new PrintStream(new FileOutputStream(customStdOut)));
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+            } else if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
+                System.out.close();
+            }
+            if (customStdErr != null) {
+                try {
+                    System.err.println("Redirecting stderr to: " + customStdErr);
+                    if (customStdOut != null && customStdErr.equals(customStdOut)) {
+                        System.setErr(System.out);
+                    } else {
+                        System.setErr(new PrintStream(new FileOutputStream(customStdErr)));
+                    }
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+            } else if (isDaemon != null && isDaemon.equalsIgnoreCase("true")) {
+                System.err.close();
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
         }
 
         this.callbackUrl = callbackUrl;
@@ -73,8 +77,12 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
         httpClient = new DefaultHttpClient();
         ickDiscovery.addMessageListener(this);
         ickDiscovery.addDeviceListener(this);
-        ickDiscovery.initDiscovery(serviceId, ipAddress, name, null);
-        ickDiscovery.addService(ServiceType.SERVICE);
+        System.out.println("initDiscovery(\"" + serviceId + "\",\"" + ipAddress + "\",\"" + name + "\")");
+        DiscoveryResult result = ickDiscovery.initDiscovery(serviceId, ipAddress, name, null);
+        System.out.println("initDiscovery = " + result);
+        System.out.println("addService(" + ServiceType.SERVICE + ")");
+        result = ickDiscovery.addService(ServiceType.SERVICE);
+        System.out.println("addService = " + result);
         System.out.println(name + " initialized with identity " + serviceId + " at " + ipAddress + " using callback " + callbackUrl.toString());
         System.out.flush();
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -197,16 +205,25 @@ public class IckHttpServiceWrapper implements MessageListener, DeviceListener {
         return currentAddress;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         if (args.length >= 3) {
             try {
                 new IckHttpServiceWrapper(args[0], args[1], new URL(args[2]));
             } catch (MalformedURLException e) {
                 e.printStackTrace();
+                Thread.sleep(1000);
                 System.exit(2);
+            } catch (RuntimeException e) {
+                System.err.println("Error starting ickStream daemon: " + e.getLocalizedMessage());
+                e.printStackTrace();
+                System.err.flush();
+                Thread.sleep(1000);
+                System.exit(3);
             }
         } else {
             System.err.println("Invalid parameters, should be called with <uuid> <name> <url> as parameters");
+            System.err.flush();
+            Thread.sleep(1000);
             System.exit(1);
         }
     }
