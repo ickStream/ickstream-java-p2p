@@ -42,13 +42,25 @@
         <profile>
             <id>linux</id>
             <activation>
-                <os>
-                    <family>unix</family>
-                    <name>!mac os x</name>
-                </os>
+               <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>linuxintel</value>
+               </property>
             </activation>
             <modules>
                 <module>dist-linux</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>linuxarm</id>
+            <activation>
+               <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>linuxarm</value>
+               </property>
+            </activation>
+            <modules>
+                <module>dist-linuxarm</module>
             </modules>
         </profile>
         <profile>

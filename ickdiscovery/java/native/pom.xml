@@ -23,12 +23,25 @@
     <profiles>
 
         <profile>
+            <id>linuxarm</id>
+            <activation>
+                <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>linuxarm</value>
+                </property>
+            </activation>
+            <modules>
+                <module>linuxarm</module>
+            </modules>
+        </profile>
+
+        <profile>
             <id>linux</id>
             <activation>
-                <os>
-                    <family>unix</family>
-                    <name>!mac os x</name>
-                </os>
+               <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>linuxintel</value>
+               </property>
             </activation>
             <modules>
                 <module>linux32</module>
@@ -39,6 +52,10 @@
         <profile>
             <id>macosx</id>
             <activation>
+               <property>
+                    <name>BUILD_ENVIRONMENT</name>
+                    <value>maxosxintel</value>
+               </property>
                 <os>
                     <family>mac</family>
                 </os>
