@@ -9,6 +9,8 @@ package com.ickstream.common.ickdiscovery;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.*;
 
 /**
@@ -150,24 +152,29 @@ public class IckDiscoveryJNI implements IckDiscovery {
             } else {
                 String path = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
                 if (path != null) {
-                    File files[] = new File(path).getParentFile().listFiles(new FileFilter() {
-                        @Override
-                        public boolean accept(File file) {
-                            return file.getName().matches("libickDiscoveryJNI" + postfix + ".*");
-                        }
-                    });
-                    if (files.length > 0) {
-                        for (File file : files) {
-                            try {
-                                System.load(file.getCanonicalPath());
-                                loaded = true;
-                                break;
-                            } catch (UnsatisfiedLinkError e1) {
-                                // Just ignore, we want to continue and try any other alternatives
-                            } catch (IOException e1) {
-                                // Just ignore
+                    try {
+                        path = URLDecoder.decode(path, "UTF-8");
+                        File files[] = new File(path).getParentFile().listFiles(new FileFilter() {
+                            @Override
+                            public boolean accept(File file) {
+                                return file.getName().matches("libickDiscoveryJNI" + postfix + ".*");
+                            }
+                        });
+                        if (files.length > 0) {
+                            for (File file : files) {
+                                try {
+                                    System.load(file.getCanonicalPath());
+                                    loaded = true;
+                                    break;
+                                } catch (UnsatisfiedLinkError e1) {
+                                    // Just ignore, we want to continue and try any other alternatives
+                                } catch (IOException e1) {
+                                    // Just ignore
+                                }
                             }
                         }
+                    } catch (UnsupportedEncodingException e1) {
+                        e1.printStackTrace();
                     }
                 }
             }
