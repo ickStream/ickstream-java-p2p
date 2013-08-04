@@ -11,29 +11,41 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * An implementation of {@link IckDiscovery} using JNI to connect to the native ickStream P2P module
+ */
 public class IckDiscoveryJNI implements IckDiscovery {
     private String deviceId;
 
-    public native int nativeInitDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
+    private native int nativeInitDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder);
 
+    /**
+     * See {@link com.ickstream.common.ickdiscovery.IckDiscovery#endDiscovery()} for more information
+     */
     @Override
     public native void endDiscovery();
 
-    public native int addService(int service);
+    private native int addService(int service);
 
-    public native int removeService(int service);
+    private native int removeService(int service);
 
-    public native int getDevicePort(String deviceId);
+    private native int getDevicePort(String deviceId);
 
-    public native String getDeviceAddress(String deviceId);
+    private native String getDeviceAddress(String deviceId);
 
+    /**
+     * See {@link IckDiscovery#getDeviceName(String)} for more information
+     */
     @Override
     public native String getDeviceName(String deviceId);
 
-    public native boolean nativeSendMessage(String sourceDeviceId, String targetDeviceId, byte[] message);
+    private native boolean nativeSendMessage(String sourceDeviceId, String targetDeviceId, byte[] message);
 
-    public native boolean nativeSendTargetedMessage(String sourceDeviceId, String targetDeviceId, int serviceType, byte[] message);
+    private native boolean nativeSendTargetedMessage(String sourceDeviceId, String targetDeviceId, int serviceType, byte[] message);
 
+    /**
+     * See {@link IckDiscovery#initDiscovery(String, String, String, String)} for more information
+     */
     @Override
     public DiscoveryResult initDiscovery(String deviceId, String networkInterface, String deviceName, String dataFolder) {
         this.deviceId = deviceId;
@@ -41,16 +53,25 @@ public class IckDiscoveryJNI implements IckDiscovery {
         return DiscoveryResult.valueOf(result);
     }
 
+    /**
+     * See {@link MessageSender#sendMessage(String, byte[])} for more information
+     */
     @Override
     public Boolean sendMessage(String targetDeviceId, byte[] message) {
         return nativeSendMessage(deviceId, targetDeviceId, message);
     }
 
+    /**
+     * See {@link MessageSender#sendMessage(byte[])} for more information
+     */
     @Override
     public Boolean sendMessage(byte[] message) {
         return nativeSendMessage(deviceId, null, message);
     }
 
+    /**
+     * See {@link MessageSender#sendMessage(String, ServiceType, byte[])} for more information
+     */
     @Override
     public Boolean sendMessage(String targetDeviceId, ServiceType serviceType, byte[] message) {
         if (serviceType != null) {
@@ -60,22 +81,37 @@ public class IckDiscoveryJNI implements IckDiscovery {
         }
     }
 
+    /**
+     * See {@link IckDiscovery#addService(ServiceType)} for more information
+     */
     @Override
     public DiscoveryResult addService(ServiceType serviceType) {
         int result = addService(serviceType.value());
         return DiscoveryResult.valueOf(result);
     }
 
+    /**
+     * See {@link IckDiscovery#removeService(ServiceType)} for more information
+     */
     @Override
     public DiscoveryResult removeService(ServiceType serviceType) {
         int result = removeService(serviceType.value());
         return DiscoveryResult.valueOf(result);
     }
 
+    /**
+     * Creates a new instance
+     */
     public IckDiscoveryJNI() {
         this(null);
     }
 
+    /**
+     * Creates a new instance but use a custom JNI implementation.
+     * The JNI implementation will be loaded from the specified name but with "32" or "64" appended to it depending on the OS architecture used
+     *
+     * @param libraryName The name of the JNI implementation module
+     */
     public IckDiscoveryJNI(String libraryName) {
         final String postfix = System.getProperty("os.arch").contains("64") ? "64" : "32";
         try {
@@ -144,11 +180,21 @@ public class IckDiscoveryJNI implements IckDiscovery {
     private Set<DeviceListener> deviceListeners = new HashSet<DeviceListener>();
     private Set<MessageListener> messageListeners = new HashSet<MessageListener>();
 
+    /**
+     * See {@link IckDiscovery#addDeviceListener(DeviceListener)} for more information
+     *
+     * @param listener A device listener
+     */
     @Override
     public void addDeviceListener(DeviceListener listener) {
         deviceListeners.add(listener);
     }
 
+    /**
+     * See {@link IckDiscovery#addMessageListener(MessageListener)} for more information
+     *
+     * @param listener A message listener
+     */
     @Override
     public void addMessageListener(MessageListener listener) {
         messageListeners.add(listener);
