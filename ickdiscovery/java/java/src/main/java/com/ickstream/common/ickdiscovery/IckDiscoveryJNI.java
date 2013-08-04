@@ -29,9 +29,21 @@ public class IckDiscoveryJNI implements IckDiscovery {
 
     private native int removeService(int service);
 
-    private native int getDevicePort(String deviceId);
+    /**
+     * Get the communication port used by the device
+     *
+     * @param deviceId The device to get communication port for
+     * @return The port used
+     */
+    public native int getDevicePort(String deviceId);
 
-    private native String getDeviceAddress(String deviceId);
+    /**
+     * Get IP address of device
+     *
+     * @param deviceId The device to get IP address for
+     * @return The IP address
+     */
+    public native String getDeviceAddress(String deviceId);
 
     /**
      * See {@link IckDiscovery#getDeviceName(String)} for more information
