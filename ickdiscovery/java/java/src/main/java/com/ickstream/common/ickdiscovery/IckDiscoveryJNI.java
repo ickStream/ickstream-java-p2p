@@ -138,9 +138,13 @@ public class IckDiscoveryJNI implements IckDiscovery {
             if (classPath.matches(".*/libickDiscoveryJNI" + postfix + ".*")) {
                 for (String classPathElement : classPathElements) {
                     if (classPathElement.matches(".*/libickDiscoveryJNI" + postfix + ".*")) {
-                        System.load(classPathElement);
-                        loaded = true;
-                        break;
+                        try {
+                            System.load(classPathElement);
+                            loaded = true;
+                            break;
+                        } catch (UnsatisfiedLinkError e1) {
+                            // Just ignore, we want to continue and try any other alternatives
+                        }
                     }
                 }
             } else {
@@ -153,11 +157,16 @@ public class IckDiscoveryJNI implements IckDiscovery {
                         }
                     });
                     if (files.length > 0) {
-                        try {
-                            System.load(files[0].getCanonicalPath());
-                            loaded = true;
-                        } catch (IOException e1) {
-                            // Just ignore
+                        for (File file : files) {
+                            try {
+                                System.load(file.getCanonicalPath());
+                                loaded = true;
+                                break;
+                            } catch (UnsatisfiedLinkError e1) {
+                                // Just ignore, we want to continue and try any other alternatives
+                            } catch (IOException e1) {
+                                // Just ignore
+                            }
                         }
                     }
                 }
