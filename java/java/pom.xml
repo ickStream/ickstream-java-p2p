@@ -1,0 +1,50 @@
+<!--
+  ~ Copyright (C) 2013 ickStream GmbH
+  ~ All rights reserved
+  -->
+
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.ickstream.common.ickp2p.java</groupId>
+        <artifactId>ickstream-ickp2p-java-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.ickstream.common.ickp2p.java</groupId>
+    <artifactId>ickstream-ickp2p-java</artifactId>
+    <name>ickP2p Java Wrapper - Java</name>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ickstream.common.ickp2p.java</groupId>
+            <artifactId>ickstream-ickp2p-java-interface</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+</project>
