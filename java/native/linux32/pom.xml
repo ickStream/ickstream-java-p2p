@@ -8,7 +8,7 @@
 
     <parent>
         <groupId>com.ickstream.common.ickp2p.java</groupId>
-        <artifactId>ickP2pNative</artifactId>
+        <artifactId>ickstream-ickp2p-java-native</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
 
