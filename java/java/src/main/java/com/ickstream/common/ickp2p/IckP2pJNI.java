@@ -82,6 +82,7 @@ public class IckP2pJNI implements IckP2p {
 
     @Override
     public void sendMsg(String targetDeviceUuid, ServiceType targetService, ServiceType sourceService, byte[] message) throws IckP2pException {
+        System.err.println("sendMsg(toUuid=" + targetDeviceUuid + ",toService=" + targetService.value() + ",fromService=" + sourceService.value() + ",message=byte[" + message.length + "])");
         int error = ickP2pSendMsg(targetDeviceUuid, targetService.value(), sourceService.value(), message);
         if (error != 0) {
             throw new IckP2pException(error);
@@ -90,7 +91,8 @@ public class IckP2pJNI implements IckP2p {
 
     @Override
     public void sendMsg(ServiceType sourceService, byte[] message) throws IckP2pException {
-        int error = ickP2pSendMsg(null, 0, sourceService.value(), message);
+        System.err.println("sendMsg(toUuid=" + null + ",toService=" + ServiceType.ANY.value() + ",fromService=" + sourceService.value() + ",message=byte[" + message.length + "])");
+        int error = ickP2pSendMsg(null, ServiceType.ANY.value(), sourceService.value(), message);
         if (error != 0) {
             throw new IckP2pException(error);
         }
@@ -126,10 +128,10 @@ public class IckP2pJNI implements IckP2p {
             } catch (MalformedURLException e) {
                 Pattern p = Pattern.compile("^([^:]+):([0-9]+)$");
                 Matcher m = p.matcher(deviceLocation);
-                if(m.find()) {
+                if (m.find()) {
                     discoveryEvent.setDeviceAddress(m.group(1));
                     discoveryEvent.setDevicePort(Integer.valueOf(m.group(2)));
-                }else {
+                } else {
                     e.printStackTrace();
                 }
             }
