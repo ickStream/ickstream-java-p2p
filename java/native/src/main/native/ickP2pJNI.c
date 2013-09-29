@@ -110,7 +110,9 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     }
 #ifdef DEBUG
     debug_log("ickP2pSetLogLevel(7)\n");
-    ickP2pSetLogLevel(7);
+    ickP2pSetLogging(7,stderr,100);
+#elif ICK_DEBUG
+    ickP2pSetLogging(6,NULL,100);
 #endif
 
     lws_set_log_level(255,NULL);
