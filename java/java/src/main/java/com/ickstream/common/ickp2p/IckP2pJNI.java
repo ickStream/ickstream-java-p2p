@@ -40,6 +40,9 @@ public class IckP2pJNI implements IckP2p {
 
     @Override
     public void create(String deviceName, String deviceUuid, String dataFolder, Integer lifetime, Integer port, ServiceType service) throws IckP2pException {
+        if (executorService.isShutdown()) {
+            executorService = Executors.newSingleThreadExecutor();
+        }
         int error = ickP2pCreate(deviceName, deviceUuid, dataFolder, lifetime != null ? lifetime : 100, port != null ? port : 1900, service.value());
         if (error != 0) {
             throw new IckP2pException(error);
@@ -70,6 +73,7 @@ public class IckP2pJNI implements IckP2p {
         if (error != 0) {
             throw new IckP2pException(error);
         }
+        executorService.shutdown();
     }
 
     @Override
