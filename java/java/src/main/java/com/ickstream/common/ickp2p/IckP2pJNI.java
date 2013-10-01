@@ -145,16 +145,18 @@ public class IckP2pJNI implements IckP2p {
                 @Override
                 public void run() {
                     if (change == 1) {
+                        listener.onInitializedDevice(discoveryEvent);
+                    } else if(change == 2) {
                         listener.onConnectedDevice(discoveryEvent);
-                    } else if (change == 2) {
+                    } else if (change == 3) {
                         listener.onDisconnectedDevice(deviceUuid);
+                    } else if (change == 4) {
+                        listener.onDiscoveredDevice(discoveryEvent);
                     } else if (change == 5) {
-                        listener.onNewDevice(discoveryEvent);
+                        listener.onByeByeDevice(deviceUuid);
                     } else if (change == 6) {
-                        listener.onRemovedDevice(deviceUuid);
-                    } else if (change == 7) {
                         listener.onExpiredDevice(deviceUuid);
-                    } else if (change == 8) {
+                    } else if (change == 7) {
                         listener.onTerminatedDevice(deviceUuid);
                     } else {
                         System.err.println("Unsupported discovery event: " + change);

@@ -13,6 +13,12 @@ package com.ickstream.common.ickp2p;
  */
 public interface DiscoveryListener {
     /**
+     * A new device has been discovered and meta data about it has been loaded
+     * @param event The identity of the device
+     */
+    void onInitializedDevice(DiscoveryEvent event);
+
+    /**
      * A connection has been established with a new device
      *
      * @param event   Information about the device
@@ -30,13 +36,13 @@ public interface DiscoveryListener {
      * A device have been discovered but connection has not yet been established with it
      * @param event The identity of the device
      */
-    void onNewDevice(DiscoveryEvent event);
+    void onDiscoveredDevice(DiscoveryEvent event);
 
     /**
      * A device have been removed on its own request
      * @param deviceId The identity of the device
      */
-    void onRemovedDevice(String deviceId);
+    void onByeByeDevice(String deviceId);
 
     /**
      * A device has been removed because it is no longer answering on the heartbeat messages

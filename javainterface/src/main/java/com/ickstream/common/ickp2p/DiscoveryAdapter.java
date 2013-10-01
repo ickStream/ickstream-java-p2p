@@ -12,6 +12,10 @@ package com.ickstream.common.ickp2p;
 public class DiscoveryAdapter implements DiscoveryListener {
 
     @Override
+    public void onInitializedDevice(DiscoveryEvent event) {
+    }
+
+    @Override
     public void onConnectedDevice(DiscoveryEvent event) {
     }
 
@@ -20,11 +24,11 @@ public class DiscoveryAdapter implements DiscoveryListener {
     }
 
     @Override
-    public void onNewDevice(DiscoveryEvent event) {
+    public void onDiscoveredDevice(DiscoveryEvent event) {
     }
 
     @Override
-    public void onRemovedDevice(String deviceId) {
+    public void onByeByeDevice(String deviceId) {
     }
 
     @Override
