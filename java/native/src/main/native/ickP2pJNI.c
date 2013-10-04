@@ -210,6 +210,14 @@ jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSuspend(JNIEnv * env, jobj
     return (jint)error;
 }
 
+jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pUpnpLoopback(JNIEnv * env, jobject service, jint enable )
+{
+    debug_log("ickP2pUpnpLoopback(%p,%d)\n",context,(int)enable);
+
+    ickErrcode_t error = ickP2pUpnpLoopback(context, enable);
+    return (jint)error;
+}
+
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pEnd(JNIEnv * env, jobject service)
 {
     debug_log("ickP2pEnd(%p)\n",context);

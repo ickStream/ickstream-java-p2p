@@ -45,6 +45,15 @@ public interface IckP2p extends MessageSender {
     void addInterface(String ifName, String hostname) throws IckP2pException;
 
     /**
+     * Enable or disable UPnP loopback functionality that makes the local device be discovered locally in
+     * same way as any other devices
+     *
+     * @param enable Enable loopback
+     * @throws IckP2pException
+     */
+    void upnpLoopback(boolean enable) throws IckP2pException;
+
+    /**
      * Add a discovery listener which wants to be informed about new and removed devices
      *
      * @param listener A device listener

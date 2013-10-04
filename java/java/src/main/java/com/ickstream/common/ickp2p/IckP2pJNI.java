@@ -30,6 +30,8 @@ public class IckP2pJNI implements IckP2p {
 
     private native int ickP2pAddInterface(String ifname, String hostname);
 
+    private native int ickP2pUpnpLoopback(int enable);
+
     private native int ickP2pResume();
 
     private native int ickP2pSuspend();
@@ -79,6 +81,14 @@ public class IckP2pJNI implements IckP2p {
     @Override
     public void addInterface(String ifName, String hostname) throws IckP2pException {
         int error = ickP2pAddInterface(ifName, hostname);
+        if (error != 0) {
+            throw new IckP2pException(error);
+        }
+    }
+
+    @Override
+    public void upnpLoopback(boolean enable) throws IckP2pException {
+        int error = ickP2pUpnpLoopback(enable ? 1 : 0);
         if (error != 0) {
             throw new IckP2pException(error);
         }
@@ -146,7 +156,7 @@ public class IckP2pJNI implements IckP2p {
                 public void run() {
                     if (change == 1) {
                         listener.onInitializedDevice(discoveryEvent);
-                    } else if(change == 2) {
+                    } else if (change == 2) {
                         listener.onConnectedDevice(discoveryEvent);
                     } else if (change == 3) {
                         listener.onDisconnectedDevice(deviceUuid);
