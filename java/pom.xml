@@ -13,6 +13,7 @@
     <packaging>pom</packaging>
     <properties>
         <ickstream.compiler.flags/>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <scm>
