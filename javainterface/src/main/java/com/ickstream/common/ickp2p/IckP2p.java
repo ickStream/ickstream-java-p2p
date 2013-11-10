@@ -66,4 +66,18 @@ public interface IckP2p extends MessageSender {
      * @param listener A message listener
      */
     void addMessageListener(MessageListener listener);
+
+    /**
+     * Remove a discovery listener previously added with {@link #addDiscoveryListener(DiscoveryListener)}
+     *
+     * @param listener A device listener
+     */
+    void removeDiscoveryListener(DiscoveryListener listener);
+
+    /**
+     * Remove a message listener previously added with {@link #addMessageListener(MessageListener)}
+     *
+     * @param listener A message listener
+     */
+    void removeMessageListener(MessageListener listener);
 }

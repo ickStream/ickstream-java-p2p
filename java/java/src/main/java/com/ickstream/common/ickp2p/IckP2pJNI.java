@@ -270,4 +270,24 @@ public class IckP2pJNI implements IckP2p {
     public void addMessageListener(MessageListener listener) {
         messageListeners.add(listener);
     }
+
+    /**
+     * See {@link IckP2p#removeDiscoveryListener(DiscoveryListener)} for more information
+     *
+     * @param listener A device listener
+     */
+    @Override
+    public void removeDiscoveryListener(DiscoveryListener listener) {
+        deviceListeners.remove(listener);
+    }
+
+    /**
+     * See {@link IckP2p#removeMessageListener(MessageListener)} for more information
+     *
+     * @param listener A device listener
+     */
+    @Override
+    public void removeMessageListener(MessageListener listener) {
+        messageListeners.remove(listener);
+    }
 }
