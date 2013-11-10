@@ -9,13 +9,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <jni.h>
+#include <syslog.h>
+#include <pthread.h>
 #ifdef __ANDROID_API__
 #include <android/log.h>
 #endif
 #include "ickP2p.h"
 #include "libwebsockets.h"
 
-#ifdef DEBUG
+void ickp2p_android_log( const char *file, int line, int prio, const char * format, ... );
+#define DEBUG_TAG "ickP2pJNI"
+
+#ifdef ICK_DEBUG
 #ifdef __ANDROID_API__
 #define debug_log( args... ) __android_log_print(ANDROID_LOG_DEBUG, DEBUG_TAG, args)
 #else
@@ -32,13 +37,106 @@
 #endif
 
 JavaVM* gJavaVM = NULL;
-jobject gService = NULL;
-char * myDeviceId = NULL;
-ickP2pContext_t* context = NULL;
+
+struct _ickP2pJNIContext;
+struct _ickP2pJNIContext {
+    ickP2pContext_t* context;
+    jobject service;
+    struct _ickP2pJNIContext* next;
+};
+
+struct _ickP2pJNIContext *contexts = NULL;
+pthread_mutex_t contextMutex;
+
+jobject getServiceForContext(ickP2pContext_t* context) {
+  jobject service = NULL;
+  pthread_mutex_lock( &contextMutex );
+  if(contexts == NULL) {
+      return NULL;
+  }
+  struct _ickP2pJNIContext* next = contexts;
+  while(next != NULL) {
+      if(next->context == context) {
+          service = next->service;
+          break;
+      }
+      next = next->next;
+  }
+  pthread_mutex_unlock( &contextMutex );
+  return service;
+}
+
+ickP2pContext_t* getContextForService(JNIEnv * env, jobject service) {
+    ickP2pContext_t* context = NULL;
+    pthread_mutex_lock( &contextMutex );
+
+    if(contexts != NULL) {
+        struct _ickP2pJNIContext* next = contexts;
+        while(next != NULL) {
+            if((*env)->IsSameObject(env,next->service,service)) {
+                context = next->context;
+                break;
+            }
+            next = next->next;
+        }
+    }
+
+    pthread_mutex_unlock( &contextMutex );
+    return context;
+}
+
+void addServiceForContext(ickP2pContext_t* context, jobject service) {
+
+    struct _ickP2pJNIContext* entry = malloc(sizeof(struct _ickP2pJNIContext) );
+    entry->context = context;
+    entry->service = service;
+    entry->next=NULL;
+
+    pthread_mutex_lock( &contextMutex );
+
+    if(contexts == NULL) {
+        contexts = entry;
+    }else {
+        struct _ickP2pJNIContext* next = contexts;
+        while(next->next != NULL) {
+            next = next->next;
+        }
+        next->next = entry;
+    }
+
+    pthread_mutex_unlock( &contextMutex );
+}
+
+void removeServiceForContext(ickP2pContext_t* context) {
+    pthread_mutex_lock( &contextMutex );
+
+    if(contexts != NULL) {
+        if(contexts->next == NULL) {
+            if(contexts->context==context) {
+                free(contexts);
+                contexts = NULL;
+            }
+        }else {
+            struct _ickP2pJNIContext* next = contexts;
+            while(next->next != NULL) {
+                if(next->next->context==context) {
+                    break;
+                }
+                next = next->next;
+            }
+            if(next->next->context == context) {
+                free(next->next);
+                next->next = NULL;
+            }
+        }
+    }
+
+    pthread_mutex_unlock( &contextMutex );
+}
 
 void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServicetype_t sourceService, ickP2pServicetype_t targetService, const char* message, size_t messageLength, ickP2pMessageFlag_t mFlags )
 {
-    debug_log("messageCb(%s,%s,%d,%d,%d)\n",szSourceDeviceId,message,(int)messageLength,sourceService,targetService);
+    debug_log("messageCb(%p,%s,%s,%d,%d,%d)\n",ictx,szSourceDeviceId,message,(int)messageLength,sourceService,targetService);
 
     int attached = 0;
     JNIEnv *env;
@@ -50,8 +148,9 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
         }
         attached = 1;
     }
-    if(gService != NULL) {
-        jclass cls = (*env)->GetObjectClass(env, gService);
+    jobject service = getServiceForContext(ictx);
+    if(service != NULL) {
+        jclass cls = (*env)->GetObjectClass(env, service);
         jmethodID messageCbID = (*env)->GetMethodID(env, cls, "messageCb", "(Ljava/lang/String;II[B)V");
         if(messageCbID != NULL) {
             jbyteArray messageJava = (*env)->NewByteArray(env, messageLength);
@@ -59,7 +158,7 @@ void messageCb(ickP2pContext_t *ictx, const char *szSourceDeviceId, ickP2pServic
             jstring sourceDeviceJava = (*env)->NewStringUTF(env, szSourceDeviceId);
             jint javaTargetService = targetService;
             jint javaSourceService = sourceService;
-            (*env)->CallVoidMethod(env, gService, messageCbID, sourceDeviceJava, javaSourceService,javaTargetService, messageJava);
+            (*env)->CallVoidMethod(env, service, messageCbID, sourceDeviceJava, javaSourceService,javaTargetService, messageJava);
         }
     }
     if(attached) {
@@ -81,8 +180,9 @@ void discoveryCb(ickP2pContext_t *ictx, const char *szDeviceId, ickP2pDeviceStat
         attached = 1;
     }
 
-    if(gService != NULL) {
-        jclass cls = (*env)->GetObjectClass(env, gService);
+    jobject service = getServiceForContext(ictx);
+    if(service != NULL) {
+        jclass cls = (*env)->GetObjectClass(env, service);
         jmethodID discoveryCbID = (*env)->GetMethodID(env, cls, "discoveryCb", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V");
         if(discoveryCbID != NULL) {
             jstring deviceJava = (*env)->NewStringUTF(env, szDeviceId);
@@ -90,7 +190,7 @@ void discoveryCb(ickP2pContext_t *ictx, const char *szDeviceId, ickP2pDeviceStat
             jstring deviceLocationJava = (*env)->NewStringUTF(env, ickP2pGetDeviceLocation(ictx,szDeviceId));
             jint changeJava = change;
             jint typeJava = type;
-            (*env)->CallVoidMethod(env, gService, discoveryCbID, deviceJava, deviceNameJava,deviceLocationJava,typeJava, changeJava);
+            (*env)->CallVoidMethod(env, service, discoveryCbID, deviceJava, deviceNameJava,deviceLocationJava,typeJava, changeJava);
         }else {
             error_log("GetMethodID failed");
         }
@@ -108,6 +208,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
         error_log("Failed to get the environment or attach thread");
         return -1;
     }
+    pthread_mutex_init( &contextMutex, NULL );
 #ifdef DEBUG
     debug_log("ickP2pSetLogLevel(7)\n");
     ickP2pSetLogging(7,stderr,100);
@@ -117,7 +218,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 
     lws_set_log_level(255,NULL);
 #ifdef __ANDROID_API__
-    ickP2pSetLogFacility(&log);
+    ickP2pSetLogFacility(&ickp2p_android_log);
 #ifdef DEBUG
     freopen("/sdcard/ickStreamPlayer.log", "w", stderr);
 #endif
@@ -128,7 +229,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pCreate(JNIEnv * env, jobject service, jstring deviceNameJava, jstring deviceIdJava, jstring dataFolderJava, jint lifetime, jint port, jint type)
 {
-    gService = (*env)->NewGlobalRef(env, service);
     const char * szDeviceId = (*env)->GetStringUTFChars(env, deviceIdJava, NULL);
     const char * szDeviceName = NULL;
     if(deviceNameJava != NULL) {
@@ -139,16 +239,10 @@ jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pCreate(JNIEnv * env, jobje
         szDataFolder = (*env)->GetStringUTFChars(env, dataFolderJava, NULL);
     }
 
-    if(myDeviceId != NULL) {
-        free(myDeviceId);
-    }
-    myDeviceId = malloc(strlen(szDeviceId)+1);
-    strcpy(myDeviceId,szDeviceId);
-
     ickErrcode_t error;
 
     debug_log("ickP2pCreate(%s,%s,%s,%d,%d,%d,%p)\n",szDeviceName, szDeviceId,szDataFolder,(int)lifetime,(int)port,(int)type,&error);
-    context = ickP2pCreate(szDeviceName, szDeviceId,szDataFolder,lifetime,port,type,&error);
+    ickP2pContext_t* context = ickP2pCreate(szDeviceName, szDeviceId,szDataFolder,lifetime,port,type,&error);
     debug_log("context = %p\n",context);
 
     debug_log("ickP2pRegisterMessageCallback(%p,%p)\n",context,&messageCb);
@@ -171,66 +265,91 @@ jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pCreate(JNIEnv * env, jobje
     if(szDataFolder != NULL) {
     	(*env)->ReleaseStringUTFChars(env, dataFolderJava, szDataFolder);
     }
+    addServiceForContext(context,(*env)->NewGlobalRef(env, service));
     return (jint)error;
 }
 
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pAddInterface(JNIEnv * env, jobject service, jstring interfaceJava, jstring hostnameJava)
 {
-    gService = (*env)->NewGlobalRef(env, service);
-
     const char * szInterface = (*env)->GetStringUTFChars(env, interfaceJava, NULL);
     const char * szHostname = NULL;
     if(hostnameJava != NULL) {
         szHostname = (*env)->GetStringUTFChars(env, hostnameJava, NULL);
     }
-
+    ickP2pContext_t* context = getContextForService(env, service);
     debug_log("ickP2pAddInterface(%p,%s,%s)\n",context,szInterface,szHostname);
-    ickErrcode_t error = ickP2pAddInterface(context, szInterface, szHostname);
 
-    (*env)->ReleaseStringUTFChars(env, interfaceJava, szInterface);
-    if(szHostname != NULL) {
-    	(*env)->ReleaseStringUTFChars(env, hostnameJava, szHostname);
+    if(context != NULL) {
+        ickErrcode_t error = ickP2pAddInterface(context, szInterface, szHostname);
+
+        (*env)->ReleaseStringUTFChars(env, interfaceJava, szInterface);
+        if(szHostname != NULL) {
+            (*env)->ReleaseStringUTFChars(env, hostnameJava, szHostname);
+        }
+        return (jint)error;
+    }else {
+        return ICKERR_INVALID;
     }
-    return (jint)error;
 }
 
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pResume(JNIEnv * env, jobject service)
 {
+    ickP2pContext_t* context = getContextForService(env, service);
     debug_log("ickP2pResume(%p)\n",context);
 
-    ickErrcode_t error = ickP2pResume(context);
-    return (jint)error;
+    if(context != NULL) {
+        ickErrcode_t error = ickP2pResume(context);
+        return (jint)error;
+    }else {
+        return ICKERR_INVALID;
+    }
 }
 
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSuspend(JNIEnv * env, jobject service)
 {
+    ickP2pContext_t* context = getContextForService(env, service);
     debug_log("ickP2pSuspend(%p)\n",context);
 
-    ickErrcode_t error = ickP2pSuspend(context);
-    return (jint)error;
+    if(context != NULL) {
+        ickErrcode_t error = ickP2pSuspend(context);
+        return (jint)error;
+    }else {
+        return ICKERR_INVALID;
+    }
 }
 
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pUpnpLoopback(JNIEnv * env, jobject service, jint enable )
 {
+    ickP2pContext_t* context = getContextForService(env, service);
     debug_log("ickP2pUpnpLoopback(%p,%d)\n",context,(int)enable);
 
-    ickErrcode_t error = ickP2pUpnpLoopback(context, enable);
-    return (jint)error;
+    if(context != NULL) {
+        ickErrcode_t error = ickP2pUpnpLoopback(context, enable);
+        return (jint)error;
+    }else {
+        return ICKERR_INVALID;
+    }
 }
 
 jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pEnd(JNIEnv * env, jobject service)
 {
+    ickP2pContext_t* context = getContextForService(env, service);
     debug_log("ickP2pEnd(%p)\n",context);
 
-    ickErrcode_t error = ickP2pEnd(context,NULL);
-    if(error == ICKERR_SUCCESS) {
-        (*env)->DeleteGlobalRef(env, gService);
-        gService = NULL;
+    if(context != NULL) {
+        ickErrcode_t error = ickP2pEnd(context,NULL);
+        if(error == ICKERR_SUCCESS) {
+            jobject service = getServiceForContext(context);
+            removeServiceForContext(context);
+            (*env)->DeleteGlobalRef(env, service);
+        }
+        return (jint)error;
+    }else {
+        return ICKERR_INVALID;
     }
-    return (jint)error;
 }
 
-jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSendMsg(JNIEnv * env, jobject this, jstring targetDeviceIdJava, jint targetService, jint sourceService, jbyteArray messageJava)
+jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSendMsg(JNIEnv * env, jobject service, jstring targetDeviceIdJava, jint targetService, jint sourceService, jbyteArray messageJava)
 {
     const char * szTargetDeviceId = NULL;
     if (targetDeviceIdJava != NULL) {
@@ -242,8 +361,14 @@ jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSendMsg(JNIEnv * env, jobj
 
     ickErrcode_t error;
 
-    debug_log("ickP2pSendMsg(%p,%s,%d,%d,%s,%d)\n",context,szTargetDeviceId,(int)targetService,(int)sourceService,byteMessage,messageLength);
-    error = ickP2pSendMsg(context, szTargetDeviceId, targetService, sourceService, byteMessage, messageLength);
+    ickP2pContext_t* context = getContextForService(env, service);
+    if(context != NULL) {
+        debug_log("ickP2pSendMsg(%p,%s,%d,%d,%s,%d)\n",context,szTargetDeviceId,(int)targetService,(int)sourceService,byteMessage,messageLength);
+        error = ickP2pSendMsg(context, szTargetDeviceId, targetService, sourceService, byteMessage, messageLength);
+    }else {
+        error = ICKERR_INVALID;
+    }
+
     if(error != ICKERR_SUCCESS) {
         error_log("Failed to send message");
     }
@@ -256,29 +381,29 @@ jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSendMsg(JNIEnv * env, jobj
 }
 
 #ifdef __ANDROID_API__
-void log( const char *file, int line, int prio, const char * format, ... )
+void ickp2p_android_log( const char *file, int line, int prio, const char * format, ... )
 {
     va_list argptr;
     va_start(argptr,format);
     switch(prio) {
         case LOG_EMERG:
         case LOG_ALERT:
-            __android_log_vprint(ANDROID_LOG_FATAL,DEBUG_TAG,format,argptr);
+            __android_log_vprint(ANDROID_LOG_FATAL,"ickP2p",format,argptr);
             break;
         case LOG_CRIT:
         case LOG_ERR:
-            __android_log_vprint(ANDROID_LOG_ERROR,DEBUG_TAG,format,argptr);
+            __android_log_vprint(ANDROID_LOG_ERROR,"ickP2p",format,argptr);
             break;
         case LOG_WARNING:
-            __android_log_vprint(ANDROID_LOG_WARN,DEBUG_TAG,format,argptr);
+            __android_log_vprint(ANDROID_LOG_WARN,"ickP2p",format,argptr);
             break;
         case LOG_NOTICE:
         case LOG_INFO:
-            __android_log_vprint(ANDROID_LOG_INFO,DEBUG_TAG,format,argptr);
+            __android_log_vprint(ANDROID_LOG_INFO,"ickP2p",format,argptr);
             break;
         case LOG_DEBUG:
         default:
-            __android_log_vprint(ANDROID_LOG_DEBUG,DEBUG_TAG,format,argptr);
+            __android_log_vprint(ANDROID_LOG_DEBUG,"ickP2p",format,argptr);
             break;
     }
     va_end(argptr);
