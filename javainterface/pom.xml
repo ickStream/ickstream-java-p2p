@@ -39,9 +39,9 @@
     </properties>
 
     <scm>
-        <connection>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</connection>
-        <url>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</url>
-        <developerConnection>scm:git:git@bitbucket.org:ickstream/ickstream-java-p2p.git</developerConnection>
+        <connection>scm:git:git@github.com:ickStream/ickstream-java-p2p.git</connection>
+        <url>scm:git:git@github.com:ickStream/ickstream-java-p2p.git</url>
+        <developerConnection>scm:git:git@github.com:ickStream/ickstream-java-p2p.git</developerConnection>
     </scm>
 
     <distributionManagement>
