@@ -400,7 +400,16 @@ jint Java_com_ickstream_common_ickp2p_IckP2pJNI_ickP2pSendMsg(JNIEnv * env, jobj
 
     ickP2pContext_t* context = getContextForService(env, service);
     if(context != NULL) {
-        debug_log("ickP2pSendMsg(%p,%s,%d,%d,%s,%d)\n",context,szTargetDeviceId,(int)targetService,(int)sourceService,byteMessage,messageLength);
+
+    	// 0-terminate byteMessage for logging
+    	char* stringMessage = malloc(messageLength + 1);
+    	memcpy(stringMessage, byteMessage, messageLength);
+    	stringMessage[messageLength] = '\0';
+
+
+        debug_log("ickP2pSendMsg(%p,%s,%d,%d,%s,%d)\n",context,szTargetDeviceId,(int)targetService,(int)sourceService,stringMessage,messageLength);
+        free(stringMessage);
+
         error = ickP2pSendMsg(context, szTargetDeviceId, targetService, sourceService, byteMessage, messageLength);
     }else {
         error = ICKERR_INVALID;
