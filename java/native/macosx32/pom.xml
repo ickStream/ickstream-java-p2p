@@ -117,9 +117,9 @@
                 <extensions>true</extensions>
                 <configuration>
                     <!--  trigger javah -->
-                    <javahOS>linux</javahOS>
+                    <javahOS>darwin</javahOS>
 
-                    <jdkIncludePath>${java.home}/../Headers</jdkIncludePath>
+                    <jdkIncludePath>${java.home}/../include</jdkIncludePath>
                     <compilerProvider>generic-classic</compilerProvider>
                     <linkerProvider>generic</linkerProvider>
                     <compilerExecutable>gcc</compilerExecutable>
